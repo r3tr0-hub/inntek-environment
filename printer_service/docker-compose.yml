@@ -1,0 +1,47 @@
+# LabelJetty - example Docker Compose deployment.
+#
+# Quick start:
+#   1. Set PRINTER_USB to your printer (find it with `lsusb`, e.g. vid:2d37:pid:62de).
+#   2. Make sure the host has a udev rule granting USB access (see docs/configuration.md).
+#   3. docker compose up -d
+#   4. Open http://localhost:8888/
+#
+# Every LabelJetty setting is an environment variable - see docs/configuration.md
+# for the full list (and which ones you should set before exposing this).
+services:
+  labeljetty:
+    image: motey/labeljetty:latest
+    container_name: labeljetty
+    restart: unless-stopped
+    ports:
+      - "8888:8888"
+    # USB passthrough that survives unplug/replug. We do NOT use `devices:` here:
+    # a static device mapping pins the node that existed at `up` time, so when the
+    # printer is replugged (and the kernel hands it a new /dev/bus/usb/NNN/MMM node)
+    # the container keeps looking at the old, now-dead node. Instead:
+    #   - device_cgroup_rules grants access to the whole USB device major (189),
+    #     so any current-or-future USB node is permitted; and
+    #   - the bind mount below exposes /dev/bus/usb live, so newly created nodes
+    #     appear inside the container without a restart.
+    device_cgroup_rules:
+      - "c 189:* rmw"
+    environment:
+      # The only required setting. Find your ids with `lsusb`.
+      PRINTER_USB: vid:2d37:pid:62de
+      # Match your label stock so jobs without an explicit size print correctly.
+      DEFAULT_LABEL_WIDTH_MM: "57"
+      DEFAULT_LABEL_HEIGHT_MM: "32"
+      DEFAULT_DPI: "203"
+      # No auth by default. Uncomment to require credentials (see docs/advanced-usage.md#authentication):
+      # AUTH_MODE: protected
+      # AUTH_TOKENS: '[{"name":"ci","token":"choose-a-long-random-secret"}]'
+      # SESSION_SECRET: another-long-random-string
+      # Optional Homebox integration (see docs/advanced-usage.md#homebox-integration):
+      # HOMEBOX_URL: https://box.example.com
+      # HOMEBOX_API_KEY: hb_xxxxxxxxxxxx
+    volumes:
+      # Persists the SQLite job DB and stored images (container points /data at these).
+      - ./data:/data
+      # Live view of the USB bus so replugged printers (new device nodes) show up
+      # without recreating the container. Paired with device_cgroup_rules above.
+      - /dev/bus/usb:/dev/bus/usb

@@ -1,0 +1,13 @@
+[Unit]
+Description=LabelJetty first-boot provisioner (installs Docker + starts the stack)
+After=network-online.target
+Wants=network-online.target
+# Idempotent: skip once provision.sh has completed, so it never runs twice.
+ConditionPathExists=!/opt/labeljetty/.provisioned
+
+[Service]
+Type=oneshot
+ExecStart=/opt/labeljetty/provision.sh
+
+[Install]
+WantedBy=multi-user.target

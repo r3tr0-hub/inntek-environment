@@ -1,0 +1,23 @@
+<h2>Homebox</h2>
+<p class="hint" style="margin-top:-0.4rem">
+  Search your inventory and print labels, or
+  <a href="/ui/homebox/setup">connect Homebox's own print button →</a>
+</p>
+<div class="field">
+  <label for="hb-q">Search items / locations
+    <span id="hb-spin" class="htmx-indicator" style="color:var(--accent)">· searching…</span>
+  </label>
+  <input id="hb-q" name="q" placeholder="Search Homebox…"
+         hx-get="/ui/homebox/search"
+         hx-trigger="keyup changed delay:350ms, search"
+         hx-target="#hb-results"
+         hx-indicator="#hb-spin"
+         hx-include="#hb-loc">
+</div>
+<div class="field" style="display:flex;align-items:center;gap:0.4rem">
+  <input type="checkbox" id="hb-loc" name="is_location" value="true" style="width:auto"
+         hx-get="/ui/homebox/search" hx-trigger="change"
+         hx-target="#hb-results" hx-include="#hb-q">
+  <label for="hb-loc" style="margin:0">Search locations instead of items</label>
+</div>
+<div id="hb-results"><div class="hint">Type to search your Homebox inventory.</div></div>

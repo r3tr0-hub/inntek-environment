@@ -1,0 +1,30 @@
+# LabelJetty on Raspberry Pi — the same stack as the top-level docker-compose.yml,
+# pinned to the reference Vretti 420B and 57x32mm Homebox label stock.
+services:
+  labeljetty:
+    image: motey/labeljetty:latest
+    container_name: labeljetty
+    restart: unless-stopped
+    ports:
+      - "8888:8888"
+    # The printer's USB bus (host udev rule governs the actual permissions). Not a
+    # `devices:` mapping: that pins the node present at 'up' time, so a replugged
+    # printer stays invisible until the container is recreated. See the top-level
+    # docker-compose.yml for the full explanation.
+    device_cgroup_rules:
+      - "c 189:* rmw"
+    environment:
+      # Pinned for robustness across image versions. Once a release with USB
+      # auto-discovery is published, this line is optional on a single-printer Pi.
+      PRINTER_USB: vid:2d37:pid:62de
+      DEFAULT_LABEL_WIDTH_MM: "57"
+      DEFAULT_LABEL_HEIGHT_MM: "32"
+      DEFAULT_DPI: "203"
+      # No auth by default (trusted LAN). Turn on before exposing:
+      # AUTH_MODE: protected
+      # AUTH_TOKENS: '[{"name":"ci","token":"choose-a-long-random-secret"}]'
+      # SESSION_SECRET: another-long-random-string
+    volumes:
+      - ./data:/data
+      # Live view of the USB bus, paired with device_cgroup_rules above.
+      - /dev/bus/usb:/dev/bus/usb

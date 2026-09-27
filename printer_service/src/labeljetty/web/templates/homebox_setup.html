@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="panel">
+  <h2>Homebox — connect for printing</h2>
+  <p class="hint">
+    Two ways to drive this printer from Homebox's own per-entity “print” button.
+    These render to your configured stock ({{ w_mm }}×{{ h_mm }} mm @ {{ dpi }} dpi).
+  </p>
+  <p><a href="/">← Back to the printer</a></p>
+
+  <div class="field">
+    <label for="hb-host">Printer service address <em>as reachable from the Homebox host</em></label>
+    <input id="hb-host" name="host" value="{{ host_value }}"
+           placeholder="e.g. 192.168.1.50:8888 or printer.local:8888"
+           hx-get="/ui/homebox/setup" hx-trigger="keyup changed delay:400ms"
+           hx-target="#hb-setup-out" hx-select="#hb-setup-out" hx-swap="outerHTML">
+    <div class="hint">Currently using <code>{{ base }}</code>. Override above if Homebox can't reach that address.</div>
+  </div>
+</section>
+
+<div id="hb-setup-out">
+
+<section class="panel">
+  <h2>Option B — External label service (no script on the Homebox host)</h2>
+  <p class="hint">
+    On the Homebox server set <code>HBOX_LABEL_MAKER_LABEL_SERVICE_URL</code> to the URL
+    below. Homebox will ask us to render each label; we render it with our engine
+    {% if autoprint %}<strong>and enqueue the print as a side effect</strong>{% else %}
+    (auto-print is currently <strong>disabled</strong>; we only return the image){% endif %}.
+  </p>
+  <div class="field">
+    <label>HBOX_LABEL_MAKER_LABEL_SERVICE_URL</label>
+    <input readonly onclick="this.select()" value="{{ label_service_url }}">
+  </div>
+  {% if autoprint %}
+  <div class="msg ok">
+    Auto-print is ON. If your Homebox build also calls this URL for label
+    <em>previews</em>, that would cause spurious prints — set
+    <code>HOMEBOX_LABEL_SERVICE_AUTOPRINT=false</code> and use Option C instead.
+  </div>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h2>Option C — Print-command script (prints only on the print button)</h2>
+  <p class="hint">
+    Save this script on the Homebox host, make it executable, and set
+    <code>HBOX_LABEL_MAKER_PRINT_COMMAND</code> to
+    <code>/path/to/script.sh {{ "{{" }}.FileName{{ "}}" }}</code>.
+    Homebox renders the label itself and we just print the bytes.
+  </p>
+  <div class="field">
+    <label>print-label.sh</label>
+    <textarea readonly rows="6" onclick="this.select()">{{ print_script }}</textarea>
+  </div>
+  <p class="hint">Match Homebox's rendering to your stock with these env vars (pixels):</p>
+  <div class="field">
+    <textarea readonly rows="5" onclick="this.select()">HBOX_LABEL_MAKER_WIDTH={{ width_px }}
+HBOX_LABEL_MAKER_HEIGHT={{ height_px }}
+HBOX_LABEL_MAKER_PADDING={{ padding_px }}
+HBOX_LABEL_MAKER_FONT_SIZE={{ font_size_px }}</textarea>
+  </div>
+</section>
+</div>
+
+{% endblock %}

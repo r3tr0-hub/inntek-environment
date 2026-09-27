@@ -1,0 +1,20 @@
+# Keep the build context small and reproducible.
+.git
+.github
+.venv
+.pytest_cache
+__pycache__/
+*.pyc
+dist/
+build/
+*.egg-info/
+.coverage
+htmlcov/
+tests/
+scratchpad_code/
+docs/*
+!docs/README.pypi.md
+images/
+*.sqlite
+.env
+src/labeljetty/_version.py

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{{ app_name }}</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/htmx.min.js" defer></script>
+</head>
+<body>
+  <header class="app">
+    <span class="dot" id="health-dot"></span>
+    <h1>{{ app_name }}</h1>
+    <span class="tagline">USB TSPL label printer</span>
+    <span class="user-nav">
+      {% if settings_ui_enabled %}
+      <a class="settings-link" href="/ui/settings" title="Settings">⚙ Settings</a>
+      {% endif %}
+      {% if auth_enabled and principal and principal.is_authenticated %}
+      <span class="user-name">{{ principal.display_name }}</span>
+      <a class="logout" href="/logout">Log out</a>
+      {% endif %}
+    </span>
+  </header>
+  {# Update-available banner. Lazy-loaded; stays empty when up to date. Skipped
+     for unauthenticated visitors (e.g. the login page) so it never triggers an
+     outbound check before login. #}
+  {% if not auth_enabled or (principal and principal.is_authenticated) %}
+  <div id="update-banner" hx-get="/ui/update" hx-trigger="load" hx-swap="innerHTML"></div>
+  {% endif %}
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="app-footer">
+    <span class="version">{{ app_name }} v{{ version }}</span>
+  </footer>
+</body>
+</html>

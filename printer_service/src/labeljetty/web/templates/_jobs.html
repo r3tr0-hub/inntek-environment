@@ -1,0 +1,20 @@
+{% if not jobs %}
+  <div class="hint">No jobs yet.</div>
+{% else %}
+<table class="jobs">
+  <thead>
+    <tr><th>Type</th><th>Status</th><th>Copies</th><th>Created</th><th>Error</th></tr>
+  </thead>
+  <tbody>
+    {% for j in jobs %}
+    <tr>
+      <td>{{ j.job.job_type }}</td>
+      <td><span class="badge {{ j.status }}">{{ j.status }}</span></td>
+      <td>{{ j.job.copies }}</td>
+      <td>{{ j.job.created_at.strftime("%H:%M:%S") }}</td>
+      <td>{{ j.job.error or "" }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}

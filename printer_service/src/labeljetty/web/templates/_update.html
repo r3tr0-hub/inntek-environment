@@ -1,0 +1,12 @@
+<div class="update-banner" role="status">
+  <span class="update-icon" aria-hidden="true">⬆</span>
+  <span class="update-text">
+    Update available: <strong>{{ update.latest }}</strong>
+    <span class="update-current">(running {{ update.current }})</span>
+    {% if update.release_url %}
+    — <a href="{{ update.release_url }}" target="_blank" rel="noopener">release notes</a>
+    {% endif %}
+    ·
+    <a href="https://github.com/{{ repo }}/blob/main/docs/updating.md" target="_blank" rel="noopener">how to update</a>
+  </span>
+</div>

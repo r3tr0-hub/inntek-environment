@@ -1,0 +1,43 @@
+# LabelJetty headless first-boot config for Raspberry Pi OS (Bookworm).
+#
+# Copy this to the FAT boot partition as `custom.toml` (drop the .example), after editing
+# the placeholders below. This replaces the Raspberry Pi Imager "customisation" screen —
+# same effect, just a text file, no GUI.
+#
+# Generate the user password hash with:   openssl passwd -6
+# (paste the full $6$... string into `password` and keep password_encrypted = true)
+
+config_version = 1
+
+[system]
+hostname = "labeljetty"
+
+[user]
+name = "jetty"
+# Replace with your own `openssl passwd -6` hash. The example below is NOT a real secret.
+password = "$6$REPLACE_WITH_openssl_passwd_-6_OUTPUT"
+password_encrypted = true
+
+# Alternative use a cleartext password
+#password = "cleartext"
+#password_encrypted = false
+
+[ssh]
+enabled = true
+password_authentication = true
+# Prefer keys? set password_authentication = false and uncomment:
+# authorized_keys = [ "ssh-ed25519 AAAA... you@host" ]
+
+# Preconfigure WiFi so the Pi is reachable immediately. DELETE this whole [wlan] block to
+# instead force Comitup's setup hotspot + captive portal on first boot (the appliance path).
+# Note: leave password_encrypted = false here — the encrypted form for WLAN is unreliable.
+[wlan]
+ssid = "YOUR_WIFI_SSID"
+password = "YOUR_WIFI_PASSWORD"
+password_encrypted = false
+hidden = false
+country = "DE"
+
+[locale]
+keymap = "de"
+timezone = "Europe/Berlin"

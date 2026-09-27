@@ -1,0 +1,32 @@
+{% if error %}
+  <div class="msg err">{{ error }}</div>
+{% elif results is defined and results %}
+  {% for r in results %}
+  <form class="status-card" style="margin-bottom:0.6rem">
+    <input type="hidden" name="kind" value="{{ r.entity.label_kind }}">
+    <input type="hidden" name="entity_id" value="{{ r.entity.id }}">
+
+    <div class="v">{{ r.entity.name }}</div>
+    <div class="k">
+      {% if r.entity.asset_id %}#{{ r.entity.asset_id }}{% endif %}
+      {% if r.entity.parent_name %} · in {{ r.entity.parent_name }}{% endif %}
+      {% if r.entity.entity_type %} · {{ r.entity.entity_type }}{% endif %}
+      · <a href="{{ r.web_url }}" target="_blank" rel="noopener">open in Homebox ↗</a>
+    </div>
+
+    <div class="btns" style="margin-top:0.5rem">
+      <button type="button" class="primary"
+              hx-post="/ui/homebox/print" hx-target="closest .btns" hx-swap="afterend">
+        Print label
+      </button>
+      <button type="button"
+              hx-post="/ui/homebox/preview" hx-target="next .hb-preview" hx-swap="innerHTML">
+        Preview
+      </button>
+    </div>
+    <div class="hb-preview"></div>
+  </form>
+  {% endfor %}
+{% else %}
+  <div class="hint">No matches.</div>
+{% endif %}

@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="panel">
+  <h2>Settings</h2>
+  <p><a href="/">← Back to the printer</a></p>
+  <p class="hint">
+    Edits are stored in the database and <strong>override environment variables</strong>
+    (precedence: admin&nbsp;UI&nbsp;&gt;&nbsp;env/.env&nbsp;&gt;&nbsp;default). Fields marked
+    <span title="takes effect after a restart">↻</span> only take effect after a restart;
+    <span title="locked via SETTINGS_LOCKED_KEYS">🔒</span> are pinned by the operator.
+  </p>
+
+  {% if open_mode_warning %}
+  <div class="banner banner-warn">
+    ⚠ Authentication is in <code>open</code> mode — anyone who can reach this page can
+    change configuration. Enable <code>AUTH_MODE=protected</code> before exposing it.
+  </div>
+  {% endif %}
+  {% if saved %}
+  <div class="banner banner-ok">
+    Settings saved.{% if restart_pending %} Some changed values (marked ↻) take effect after a restart.{% endif %}
+  </div>
+  {% endif %}
+  {% if error %}
+  <div class="banner banner-err">{{ error }}</div>
+  {% endif %}
+
+  <form method="post" action="/ui/settings">
+    {% for group, fields in groups.items() %}
+    <h3>{{ group }}</h3>
+    {% if group in group_notes %}<div class="hint group-note">{{ group_notes[group]|safe }}</div>{% endif %}
+    {% for f in fields %}
+    <div class="field">
+      <label for="{{ f.name }}">
+        {{ f.label }}{% if f.restart %} <span title="takes effect after a restart">↻</span>{% endif %}{% if f.locked %} <span title="locked via SETTINGS_LOCKED_KEYS">🔒</span>{% endif %}
+      </label>
+
+      {% if f.locked and f.widget in ('label_profiles', 'printer_select', 'auth_users') %}
+        {# Locked complex fields: show the pinned value read-only. #}
+        <input type="text" value="{{ f.locked_display }}" disabled>
+
+      {% elif f.widget == 'checkbox' %}
+        <input type="checkbox" id="{{ f.name }}" name="{{ f.name }}"
+               {% if f.checked %}checked{% endif %} {% if f.locked %}disabled{% endif %}>
+
+      {% elif f.widget == 'select' %}
+        <select id="{{ f.name }}" name="{{ f.name }}" {% if f.locked %}disabled{% endif %}>
+          {% for o in f.options %}
+          <option value="{{ o }}" {% if o|string == f.value|string %}selected{% endif %}>{{ o }}</option>
+          {% endfor %}
+        </select>
+
+      {% elif f.widget == 'printer_select' %}
+        <select id="{{ f.name }}" name="PRINTER_USB_choice" class="printer-select"
+                onchange="togglePrinterCustom(this)">
+          <option value="">Auto-detect a connected printer (recommended)</option>
+          {% for c in f.candidates %}
+          <option value="{{ c.selector }}" {% if c.selector == f.value and not f.is_custom %}selected{% endif %}>
+            {% if c.is_candidate %}🖨 {% endif %}{{ c.selector }} — {{ c.description }}{% if c.is_candidate %} · likely printer{% endif %}
+          </option>
+          {% endfor %}
+          <option value="__custom__" {% if f.is_custom %}selected{% endif %}>Custom selector (serial / port / bus)…</option>
+        </select>
+        <input type="text" name="PRINTER_USB_custom" class="printer-custom"
+               value="{{ f.value if f.is_custom else '' }}"
+               placeholder="e.g. serial:ABC123, port:3-1-2, vid:2d37:pid:62de"
+               {% if not f.is_custom %}style="display:none"{% endif %}>
+        {% if not f.candidates %}<div class="hint">No USB devices visible (need libusb access). Use the custom selector.</div>{% endif %}
+
+      {% elif f.widget == 'label_profiles' %}
+        <table class="profiles" data-default-dpi="{{ default_dpi }}">
+          <thead>
+            <tr><th>Name</th><th>Width&nbsp;mm</th><th>Height&nbsp;mm</th><th>DPI&nbsp;<span class="hint">(opt)</span></th><th></th></tr>
+          </thead>
+          <tbody>
+            {% for r in f.rows %}
+            <tr>
+              <td><input name="lp_name" value="{{ r.name }}" placeholder="e.g. DHL"></td>
+              <td><input name="lp_width" type="number" min="1" value="{{ r.width_mm }}"></td>
+              <td><input name="lp_height" type="number" min="1" value="{{ r.height_mm }}"></td>
+              <td><input name="lp_dpi" type="number" min="1" value="{{ r.dpi if r.dpi is not none else '' }}"></td>
+              <td><button type="button" class="row-del" title="Remove" onclick="this.closest('tr').remove()">✕</button></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <button type="button" class="add-row" onclick="addProfileRow(this)">+ Add profile</button>
+        <div class="hint">New or edited profiles only take effect after you press <strong>Save settings</strong> below.</div>
+
+      {% elif f.widget == 'auth_users' %}
+        <table class="profiles auth-users">
+          <thead><tr><th>Username</th><th>Password</th><th></th></tr></thead>
+          <tbody>
+            {% for u in f.users %}
+            <tr>
+              <td><input name="au_username" value="{{ u.username }}" autocomplete="off"></td>
+              <td><input name="au_password" type="password" placeholder="leave blank to keep" autocomplete="new-password"></td>
+              <td><button type="button" class="row-del" title="Remove" onclick="this.closest('tr').remove()">✕</button></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <button type="button" class="add-row" onclick="addUserRow(this)">+ Add user</button>
+        <div class="hint">Passwords are stored hashed and never shown. Removing a row deletes that user on save.</div>
+
+      {% elif f.widget == 'number' %}
+        <input type="number" id="{{ f.name }}" name="{{ f.name }}"
+               value="{{ f.value }}" {% if f.locked %}disabled{% endif %}>
+
+      {% else %}
+        <input type="text" id="{{ f.name }}" name="{{ f.name }}"
+               value="{{ f.value }}" {% if f.locked %}disabled{% endif %}>
+      {% endif %}
+
+      {% if f.help %}<div class="hint">{{ f.help }}</div>{% endif %}
+      {% if f.locked %}<div class="hint">Locked by <code>SETTINGS_LOCKED_KEYS</code> — change it via the environment.</div>{% endif %}
+    </div>
+    {% endfor %}
+    {% endfor %}
+
+    <div class="btns">
+      <button type="submit" class="primary">Save settings</button>
+    </div>
+  </form>
+
+  <script>
+    function addProfileRow(btn) {
+      const table = btn.previousElementSibling;  // the .profiles table
+      const tr = document.createElement('tr');
+      const dpi = table.dataset.defaultDpi || '';
+      tr.innerHTML =
+        '<td><input name="lp_name" placeholder="e.g. DHL"></td>' +
+        '<td><input name="lp_width" type="number" min="1"></td>' +
+        '<td><input name="lp_height" type="number" min="1"></td>' +
+        '<td><input name="lp_dpi" type="number" min="1" placeholder="' + dpi + '"></td>' +
+        '<td><button type="button" class="row-del" title="Remove" onclick="this.closest(\'tr\').remove()">✕</button></td>';
+      table.querySelector('tbody').appendChild(tr);
+    }
+    function addUserRow(btn) {
+      const table = btn.previousElementSibling;  // the .auth-users table
+      const tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td><input name="au_username" placeholder="username" autocomplete="off"></td>' +
+        '<td><input name="au_password" type="password" placeholder="set password" autocomplete="new-password"></td>' +
+        '<td><button type="button" class="row-del" title="Remove" onclick="this.closest(\'tr\').remove()">✕</button></td>';
+      table.querySelector('tbody').appendChild(tr);
+    }
+    function togglePrinterCustom(sel) {
+      const custom = sel.parentElement.querySelector('.printer-custom');
+      if (custom) custom.style.display = (sel.value === '__custom__') ? '' : 'none';
+    }
+  </script>
+
+  <form method="post" action="/ui/settings/reset"
+        onsubmit="return confirm('Clear all overrides and revert to env/defaults?');">
+    <div class="btns">
+      <button type="submit">Reset to env/defaults</button>
+    </div>
+  </form>
+</section>
+
+<section class="panel">
+  <h2>System info</h2>
+  <p class="hint">Infrastructure settings — change these via the environment and restart.</p>
+  <table class="jobs">
+    {% for label, value in system_info %}
+    <tr><th>{{ label }}</th><td><code>{{ value }}</code></td></tr>
+    {% endfor %}
+  </table>
+</section>
+
+{% endblock %}

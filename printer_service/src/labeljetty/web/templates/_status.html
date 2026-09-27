@@ -1,0 +1,66 @@
+<div class="status-grid">
+  <div class="status-card">
+    <div class="k">Print worker</div>
+    <div class="v">
+      {% if worker.status == "running" %}
+        <span style="color:var(--ok)">running</span>
+      {% else %}
+        <span style="color:var(--err)">{{ worker.status }}</span>
+      {% endif %}
+    </div>
+    {% if worker.worker_error %}<div class="hint">{{ worker.worker_error }}</div>{% endif %}
+  </div>
+
+  <div class="status-card">
+    <div class="k">Printer</div>
+    <div class="v">
+      {% if not printer_reachable %}
+        <span style="color:var(--err)">unreachable</span>
+      {% elif not printer_supported %}
+        <span style="color:var(--ok)">ready</span>
+      {% elif printer_status and printer_status.ready and not printer_status.error %}
+        <span style="color:var(--ok)">ready</span>
+      {% else %}
+        <span style="color:var(--warn)">attention</span>
+      {% endif %}
+    </div>
+    {% if not printer_reachable %}
+      <div class="hint">{{ printer_error }}</div>
+    {% elif not printer_supported %}
+      <div class="hint">status not reported by this printer (printing still works)</div>
+    {% elif printer_status %}
+      <div class="hint">
+        {% if printer_status.head_opened %}head open · {% endif %}
+        {% if printer_status.paper_empty %}paper out · {% endif %}
+        {% if printer_status.ribbon_empty %}ribbon out · {% endif %}
+        {% if printer_status.paper_jam %}jam · {% endif %}
+        {% if printer_status.paused %}paused · {% endif %}
+        {% if printer_status.ready and not printer_status.error %}ok{% endif %}
+      </div>
+    {% endif %}
+  </div>
+
+  {% if printer_info %}
+  <div class="status-card wide">
+    <div class="k">Device
+      {% if autodetected %}<span class="badge queued">auto-detected</span>
+      {% else %}<span class="badge done">pinned</span>{% endif %}
+    </div>
+    <div class="v mono">{{ printer_info.selector }}</div>
+    <dl class="kv">
+      {% if printer_info.description %}<dt>Name</dt><dd>{{ printer_info.description }}</dd>{% endif %}
+      <dt>USB id</dt><dd class="mono">{{ printer_info.vendor_id }}:{{ printer_info.product_id }}</dd>
+      {% if printer_info.serial %}<dt>Serial</dt><dd class="mono">{{ printer_info.serial }}</dd>{% endif %}
+      {% if printer_info.port_path %}<dt>Port path</dt><dd class="mono">{{ printer_info.port_path }}</dd>{% endif %}
+      {% if printer_info.device_path %}<dt>Device path</dt><dd class="mono">{{ printer_info.device_path }}</dd>{% endif %}
+      {% if printer_info.bus is not none and printer_info.address is not none %}<dt>Bus / address</dt><dd class="mono">{{ printer_info.bus }} / {{ printer_info.address }}</dd>{% endif %}
+    </dl>
+    {% if autodetected %}
+    <div class="pin-hint">
+      Auto-detected. For a stable setup, pin this printer by setting
+      <code class="mono">PRINTER_USB={{ printer_info.selector }}</code> in your environment.
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>

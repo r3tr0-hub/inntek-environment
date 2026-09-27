@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="panel">
+  <h2>Print a label</h2>
+  <form id="print-form" hx-encoding="multipart/form-data">
+
+    <div class="field">
+      <label for="job_type">Label type</label>
+      <select id="job_type" name="job_type" onchange="updateFields()">
+        <option value="text">Text</option>
+        <option value="markdown">Markdown</option>
+        <option value="qrcode">QR code</option>
+        <option value="barcode">Barcode</option>
+        <option value="png">Image (PNG, JPG, …)</option>
+        <option value="pdf">PDF</option>
+      </select>
+    </div>
+
+    <!-- text / markdown -->
+    <div class="field jt jt-text jt-markdown">
+      <label for="text">Text</label>
+      <textarea id="text" name="text" placeholder="Label text…"></textarea>
+      <div class="hint jt jt-markdown"># Heading, ## Subheading, * bullet, **bold**</div>
+    </div>
+
+    <!-- qrcode / barcode payload -->
+    <div class="field jt jt-qrcode jt-barcode">
+      <label for="data">Data / URL</label>
+      <input id="data" name="data" placeholder="https://… or 12345678">
+    </div>
+
+    <!-- qrcode / barcode optional caption -->
+    <div class="field jt jt-qrcode jt-barcode">
+      <label for="caption">Caption (optional)</label>
+      <input id="caption" name="text" placeholder="Human-readable text">
+    </div>
+
+    <div class="row">
+      <div class="field jt jt-text">
+        <label for="font_size">Font size (px, blank = auto-fit)</label>
+        <input id="font_size" name="font_size" type="number" min="1" placeholder="auto">
+      </div>
+      <div class="field jt jt-text jt-markdown">
+        <label for="fit">Auto-fit</label>
+        <select id="fit" name="fit">
+          <option value="fill">fill (grow to fill label)</option>
+          <option value="width">width (keep line breaks)</option>
+        </select>
+      </div>
+      <div class="field jt jt-barcode">
+        <label for="barcode_type">Barcode type</label>
+        <select id="barcode_type" name="barcode_type">
+          <option value="128">Code 128</option>
+          <option value="EAN13">EAN-13</option>
+          <option value="EAN8">EAN-8</option>
+          <option value="39">Code 39</option>
+          <option value="UPCA">UPC-A</option>
+          <option value="I25">Interleaved 2 of 5</option>
+        </select>
+      </div>
+      <div class="field jt jt-qrcode">
+        <label for="ecc_level">QR error correction</label>
+        <select id="ecc_level" name="ecc_level">
+          <option value="L">L (7%)</option>
+          <option value="M" selected>M (15%)</option>
+          <option value="Q">Q (25%)</option>
+          <option value="H">H (30%)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- file types -->
+    <div class="field jt jt-png jt-pdf">
+      <label for="file">File</label>
+      <input id="file" name="file" type="file">
+    </div>
+    <div class="field jt jt-png jt-pdf">
+      <label for="image_fit">Scale to label</label>
+      <select id="image_fit" name="image_fit">
+        <option value="fit">fit — whole image inside the label (may leave margins)</option>
+        <option value="fill">fill — cover the label (crops overflow)</option>
+        <option value="stretch">stretch — exact label size (ignores aspect ratio)</option>
+        <option value="original">original — keep image's own size</option>
+      </select>
+    </div>
+    <div class="field jt jt-pdf">
+      <label for="page">Page (index or "all")</label>
+      <input id="page" name="page" value="0">
+    </div>
+
+    <!-- content rotation (same label format, content turned in 90° steps) -->
+    <div class="field jt jt-text jt-markdown jt-png jt-pdf">
+      <label for="rotate">Rotate content</label>
+      <select id="rotate" name="rotate">
+        <option value="0">0° (no rotation)</option>
+        <option value="90">90° clockwise</option>
+        <option value="180">180° (upside down)</option>
+        <option value="270">270° clockwise (90° counter-clockwise)</option>
+      </select>
+      <div class="hint">Keeps the label size; turns the content and re-fits it to the rotated shape.</div>
+    </div>
+
+    <hr style="border-color:var(--border);opacity:.4;margin:1rem 0">
+
+    <div class="field">
+      <label for="profile">Label profile</label>
+      <select id="profile" onchange="applyProfile()">
+        {% for p in profiles %}
+        <option value="{{ loop.index0 }}"
+                data-w="{{ p.width_mm }}" data-h="{{ p.height_mm }}"
+                data-dpi="{{ p.dpi or default_dpi }}">
+          {{ p.name }} — {{ p.width_mm }}×{{ p.height_mm }} mm
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label for="label_width_mm">Width (mm)</label>
+        <input id="label_width_mm" name="label_width_mm" type="number" min="1" value="{{ default_width_mm }}">
+      </div>
+      <div class="field">
+        <label for="label_height_mm">Height (mm)</label>
+        <input id="label_height_mm" name="label_height_mm" type="number" min="1" value="{{ default_height_mm }}">
+      </div>
+      <div class="field">
+        <label for="dpi">DPI</label>
+        <input id="dpi" name="dpi" type="number" min="1" value="{{ default_dpi }}">
+      </div>
+      <div class="field">
+        <label for="copies">Copies</label>
+        <input id="copies" name="copies" type="number" min="1" value="1">
+      </div>
+    </div>
+
+    <div class="btns">
+      <button type="button" class="primary"
+              hx-post="/ui/print" hx-target="#print-result" hx-swap="innerHTML">
+        Print
+      </button>
+      <button type="button"
+              hx-post="/ui/preview" hx-target="#preview" hx-swap="innerHTML">
+        Preview
+      </button>
+      <span class="htmx-indicator" style="align-self:center;color:var(--muted)">working…</span>
+    </div>
+  </form>
+
+  <div id="print-result" style="margin-top:0.8rem"></div>
+</section>
+
+<section class="panel">
+  <h2>Preview</h2>
+  <div id="preview" class="preview-wrap">Press “Preview” to render the label.</div>
+</section>
+
+{% if homebox_enabled %}
+<section class="panel" id="homebox"
+         hx-get="/ui/homebox" hx-trigger="load" hx-swap="innerHTML">
+  <h2>Homebox</h2>
+  <div class="hint">Loading Homebox…</div>
+</section>
+{% endif %}
+
+<section class="panel">
+  <h2>Status</h2>
+  <div id="status" hx-get="/ui/status" hx-trigger="load, every 8s" hx-swap="innerHTML">
+    <div class="hint">Loading status…</div>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Recent jobs</h2>
+  <div id="jobs" hx-get="/ui/jobs" hx-trigger="load, every 3s, jobsChanged from:body" hx-swap="innerHTML">
+    <div class="hint">Loading jobs…</div>
+  </div>
+</section>
+
+<script>
+  function updateFields() {
+    const t = document.getElementById('job_type').value;
+    document.querySelectorAll('.jt').forEach(el => {
+      // Show an element only if it carries the class for the selected type.
+      const show = el.classList.contains('jt-' + t);
+      el.style.display = show ? '' : 'none';
+      // Disable inputs in hidden groups so they aren't submitted — otherwise the
+      // hidden caption box (also name="text") would clobber the textarea value.
+      el.querySelectorAll('input,select,textarea').forEach(i => { i.disabled = !show; });
+    });
+  }
+  function applyProfile() {
+    const opt = document.getElementById('profile').selectedOptions[0];
+    if (!opt) return;
+    document.getElementById('label_width_mm').value = opt.dataset.w;
+    document.getElementById('label_height_mm').value = opt.dataset.h;
+    document.getElementById('dpi').value = opt.dataset.dpi;
+  }
+  document.addEventListener('DOMContentLoaded', updateFields);
+</script>
+{% endblock %}

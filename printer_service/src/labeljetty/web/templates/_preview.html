@@ -1,0 +1,14 @@
+<div class="preview-wrap">
+  {% if error %}
+    <div class="msg err">{{ error }}</div>
+  {% elif image %}
+    <img src="{{ image }}" alt="label preview">
+    {% if homebox %}
+    <div class="hint">Homebox's own label — printed as-is</div>
+    {% else %}
+    <div class="hint">{{ width_mm }}×{{ height_mm }} mm · this is what will print (1-bit, dithered)</div>
+    {% endif %}
+  {% else %}
+    Nothing to preview.
+  {% endif %}
+</div>

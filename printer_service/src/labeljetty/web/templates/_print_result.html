@@ -1,0 +1,5 @@
+{% if error %}
+  <div class="msg err">{{ error }}</div>
+{% else %}
+  <div class="msg ok">Queued job <code>{{ job.id }}</code> ({{ job.job_type }}, {{ job.copies }}×).</div>
+{% endif %}
