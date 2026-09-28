@@ -24,7 +24,7 @@
 ### 1. Установить
 
 - Docker Desktop — https://www.docker.com/products/docker-desktop/
-- (только для устройства с принтером) Python 3.12 + labeljetty
+- (только для устройства с принтером) Python 3.14 + labeljetty
 
 ### 2. Склонировать репозиторий
 
