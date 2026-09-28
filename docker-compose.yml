@@ -29,6 +29,7 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       PRINTER_URL: ${PRINTER_URL:-}
       PRINTER_TIMEOUT: ${PRINTER_TIMEOUT:-15.0}
+      SEED_ENABLED: ${SEED_ENABLED:-false}
     ports:
       - "8000:8000"
     volumes:

@@ -2,11 +2,11 @@ from sqlalchemy.orm import Session
 from .models import User, Specification, LabelTemplate, LabelVariant, Machine
 
 USERS = [
-    ("Поляков Борис Сергеевич",   "naladchik",     "1001", "0001"),
-    ("Скачкова Ольга Григорьевна","upakovshchik",  "1002", "0002"),
-    ("Игамбетова Динара Маратовна","upakovshchik", "1003", "0003"),
-    ("Сайпова Гульнара Шавкатовна","upakovshchik", "1004", "0004"),
-    ("Иванов Иван Иванович",      "pomoshchnik",   "1005", "0005"),
+    ("Тестовый Наладчик",   "naladchik",     "1001", "0001"),
+    ("Тестовый Упаковщик 1","upakovshchik",  "1002", "0002"),
+    ("Тестовый Упаковщик 2","upakovshchik",  "1003", "0003"),
+    ("Тестовый Упаковщик 3","upakovshchik",  "1004", "0004"),
+    ("Тестовый Помощник",   "pomoshchnik",   "1005", "0005"),
 ]
 
 MACHINES = [
