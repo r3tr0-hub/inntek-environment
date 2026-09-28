@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from ..database import get_db
-from ..models import Box, Specification, LabelVariant, Shift, User, LabelTemplate, PrintJob
+from ..models import Box, Specification, LabelVariant, Shift, User, Machine, ShiftAssignment, PrintJob
 from ..schemas import BoxCreate, BoxOut
 from ..label_builder import build_tspl
 from ..services.printer_client import send_to_printer
@@ -38,7 +38,32 @@ def create_box(payload: BoxCreate, db: Session = Depends(get_db)):
     shift = db.get(Shift, payload.shift_id)
     if not shift:
         raise HTTPException(404, "Смена не найдена")
+    machine = db.get(Machine, payload.machine_id)
+    if not machine:
+        raise HTTPException(404, "Станок не найден")
 
+    # Ищем активного упаковщика на станке. Первый по времени — основной.
+    packer_assignment = db.query(ShiftAssignment).filter(
+        ShiftAssignment.shift_id == payload.shift_id,
+        ShiftAssignment.machine_id == payload.machine_id,
+        ShiftAssignment.role_in_shift == "upakovshchik",
+        ShiftAssignment.to_time.is_(None),
+    ).order_by(ShiftAssignment.from_time).first()
+
+    if not packer_assignment:
+        raise HTTPException(400, f"На станке {machine.code} нет активного упаковщика. Сначала подтвердитесь через ТСД.")
+
+    packer = db.get(User, packer_assignment.user_id)
+
+    # Активный оператор смены
+    operator_assignment = db.query(ShiftAssignment).filter(
+        ShiftAssignment.shift_id == payload.shift_id,
+        ShiftAssignment.role_in_shift == "operator",
+        ShiftAssignment.to_time.is_(None),
+    ).first()
+    operator = db.get(User, operator_assignment.user_id) if operator_assignment else None
+
+    # Номер коробки в смене
     last_num = db.query(func.coalesce(func.max(Box.box_number_in_shift), 0)).filter(
         Box.shift_id == payload.shift_id
     ).scalar() or 0
@@ -50,16 +75,18 @@ def create_box(payload: BoxCreate, db: Session = Depends(get_db)):
         spec_id=payload.spec_id,
         variant_id=payload.variant_id,
         shift_id=payload.shift_id,
+        machine_id=payload.machine_id,
         box_number_in_shift=box_number,
         quantity_total=payload.quantity_total,
         quantity_packs=payload.quantity_packs,
         quantity_per_pack=payload.quantity_per_pack,
-        packer_user_id=payload.packer_user_id,
-        operator_user_id=payload.operator_user_id,
+        packer_user_id=packer.user_id if packer else None,
+        operator_user_id=operator.user_id if operator else None,
         weight_brutto_g=spec.weight_brutto_g,
     )
     db.add(b); db.flush()
 
+    # Формируем qr_content
     parts = [f"UID={b.box_uid:013d}", f"SKU={spec.sku_1c}"]
     if payload.quantity_packs and payload.quantity_per_pack:
         parts.append(f"PACKS={payload.quantity_packs}")
@@ -69,9 +96,6 @@ def create_box(payload: BoxCreate, db: Session = Depends(get_db)):
         parts.append(f"MAT={spec.film_sku}")
     if spec.film_name:
         parts.append(f"MAT_NAME={spec.film_name}")
-
-    packer = db.get(User, payload.packer_user_id) if payload.packer_user_id else None
-    operator = db.get(User, payload.operator_user_id) if payload.operator_user_id else None
     if packer:
         parts.append(f"UPAK={packer.employee_code}")
         b.packer_fio = packer.full_name

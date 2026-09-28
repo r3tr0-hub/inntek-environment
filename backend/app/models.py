@@ -14,7 +14,7 @@ class User(Base):
     full_name: Mapped[str] = mapped_column(String(150))
     employee_code: Mapped[str] = mapped_column(String(10), unique=True)
     role: Mapped[str] = mapped_column(String(20))
-    pin: Mapped[str | None] = mapped_column(String(6), nullable=True)
+    pin: Mapped[str | None] = mapped_column(String(6), nullable=True, unique=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     __table_args__ = (
@@ -80,6 +80,7 @@ class Box(Base):
     spec_id: Mapped[int] = mapped_column(ForeignKey("specifications.spec_id"))
     variant_id: Mapped[int] = mapped_column(ForeignKey("label_variants.variant_id"))
     shift_id: Mapped[int] = mapped_column(ForeignKey("shifts.shift_id"))
+    machine_id: Mapped[int | None] = mapped_column(ForeignKey("machines.machine_id"), nullable=True)
     box_number_in_shift: Mapped[int | None] = mapped_column(Integer, nullable=True)
     quantity_total: Mapped[int] = mapped_column(Integer)
     quantity_packs: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -113,3 +114,21 @@ class Machine(Base):
     name: Mapped[str] = mapped_column(String(100))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+class ShiftAssignment(Base):
+    __tablename__ = "shift_assignments"
+    assignment_id: Mapped[int] = mapped_column(primary_key=True)
+    shift_id: Mapped[int] = mapped_column(ForeignKey("shifts.shift_id"))
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.user_id"))
+    role_in_shift: Mapped[str] = mapped_column(String(20))
+    machine_id: Mapped[int | None] = mapped_column(ForeignKey("machines.machine_id"), nullable=True)
+    from_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    to_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reason: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    __table_args__ = (
+        CheckConstraint(
+            "role_in_shift IN ('operator','pomoshchnik','stager','upakovshchik')",
+            name="ck_assignment_role",
+        ),
+    )

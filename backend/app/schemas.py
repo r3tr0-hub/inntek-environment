@@ -30,10 +30,10 @@ class BoxCreate(BaseModel):
     spec_id: int
     variant_id: int
     shift_id: int
+    machine_id: int
     quantity_total: int
     quantity_packs: int | None = None
     quantity_per_pack: int | None = None
-    packer_user_id: int | None = None
     operator_user_id: int | None = None
 
 class BoxOut(BaseModel):
@@ -44,6 +44,7 @@ class BoxOut(BaseModel):
     qr_content: str
     box_number_in_shift: int | None
     status: str
+    machine_id: int | None = None
     created_at: datetime
 
 class LabelVariantOut(BaseModel):
@@ -65,3 +66,33 @@ class MachineOut(BaseModel):
     code: str
     name: str
     is_active: bool
+
+class AssignmentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    assignment_id: int
+    shift_id: int
+    user_id: int
+    role_in_shift: str
+    machine_id: int | None = None
+    from_time: datetime
+    to_time: datetime | None = None
+    reason: str | None = None
+
+
+class ShiftOpenWithComposition(BaseModel):
+    date: date
+    shift_number: int
+    operator_user_id: int
+    opened_at: datetime
+    helper_user_ids: list[int] = []
+    stager_user_ids: list[int] = []
+
+
+class PackerCheckIn(BaseModel):
+    pin: str
+    machine_id: int
+
+
+class PackerCheckOut(BaseModel):
+    assignment_id: int
+    reason: str
