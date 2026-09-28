@@ -73,10 +73,10 @@ def create_box(payload: BoxCreate, db: Session = Depends(get_db)):
     packer = db.get(User, payload.packer_user_id) if payload.packer_user_id else None
     operator = db.get(User, payload.operator_user_id) if payload.operator_user_id else None
     if packer:
-        parts.append(f"UPAK={_translit(packer.full_name)}")
+        parts.append(f"UPAK={packer.employee_code}")
         b.packer_fio = packer.full_name
     if operator:
-        parts.append(f"NALAD={_translit(operator.full_name)}")
+        parts.append(f"NALAD={operator.employee_code}")
         b.operator_fio = operator.full_name
 
     parts.append(f"DATE={b.created_at.strftime('%Y-%m-%d') if b.created_at else ''}")

@@ -58,3 +58,10 @@ class LabelVariantOut(BaseModel):
     # Расшифровка для удобства
     spec_sku: str | None = None
     template_code: str | None = None
+
+class MachineOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    machine_id: int
+    code: str
+    name: str
+    is_active: bool

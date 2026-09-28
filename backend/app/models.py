@@ -12,13 +12,14 @@ class User(Base):
     __tablename__ = "users"
     user_id: Mapped[int] = mapped_column(primary_key=True)
     full_name: Mapped[str] = mapped_column(String(150))
+    employee_code: Mapped[str] = mapped_column(String(10), unique=True)
     role: Mapped[str] = mapped_column(String(20))
     pin: Mapped[str | None] = mapped_column(String(6), nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     __table_args__ = (
         CheckConstraint(
-            "role IN ('naladchik','pomoshchnik','upakovshchik','kladovshchik','admin')",
+            "role IN ('naladchik','pomoshchnik','stager','upakovshchik','kladovshchik','shift_lead','admin')",
             name="ck_user_role",
         ),
     )
@@ -103,4 +104,12 @@ class PrintJob(Base):
     printer_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="queued")
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+class Machine(Base):
+    __tablename__ = "machines"
+    machine_id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String(20), unique=True)
+    name: Mapped[str] = mapped_column(String(100))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

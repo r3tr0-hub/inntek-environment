@@ -1,0 +1,116 @@
+[33mcommit 93a92f6e237b8b5c97dc61fd962925a0aad310e4[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m
+Author: r3tr0-hub <wizzigun@gmail.com>
+Date:   Mon Sep 28 01:15:57 2026 +0300
+
+    Первый коммит: инфраструктура + модуль этикеток + форк LabelJetty
+
+ .env.example                                       |   20 [32m+[m
+ .gitignore                                         |   72 [32m++[m
+ README.md                                          |  102 [32m++[m
+ backend/Dockerfile                                 |   11 [32m+[m
+ backend/app/__init__.py                            |    0
+ backend/app/api/__init__.py                        |    9 [32m+[m
+ backend/app/api/auth.py                            |   18 [32m+[m
+ backend/app/api/boxes.py                           |  143 [32m+++[m
+ backend/app/api/shifts.py                          |   28 [32m+[m
+ backend/app/api/specifications.py                  |   11 [32m+[m
+ backend/app/api/variants.py                        |   39 [32m+[m
+ backend/app/database.py                            |   21 [32m+[m
+ backend/app/label_builder.py                       |   50 [32m+[m
+ backend/app/main.py                                |   21 [32m+[m
+ backend/app/models.py                              |  106 [32m++[m
+ backend/app/schemas.py                             |   60 [32m+[m
+ backend/app/seed.py                                |  162 [32m+++[m
+ backend/app/services/__init__.py                   |    0
+ backend/app/services/printer_client.py             |   60 [32m+[m
+ backend/requirements.txt                           |   11 [32m+[m
+ docker-compose.yml                                 |   39 [32m+[m
+ printer_service/.dockerignore                      |   20 [32m+[m
+ printer_service/.python-version                    |    1 [32m+[m
+ printer_service/Dockerfile                         |   61 [32m+[m
+ printer_service/LICENSE                            |   21 [32m+[m
+ printer_service/LabelJetty.spec                    |   42 [32m+[m
+ printer_service/README-INNTEK.md                   |   46 [32m+[m
+ printer_service/README.md                          |  112 [32m++[m
+ printer_service/deploy/install.sh                  |  227 [32m++++[m
+ printer_service/deploy/rpi/README.md               |  101 [32m++[m
+ .../deploy/rpi/boot/custom.toml.example            |   43 [32m+[m
+ printer_service/deploy/rpi/comitup.conf            |   16 [32m+[m
+ printer_service/deploy/rpi/docker-compose.yml      |   30 [32m+[m
+ .../deploy/rpi/labeljetty-provision.service        |   13 [32m+[m
+ printer_service/deploy/rpi/provision.sh            |   43 [32m+[m
+ printer_service/docker-compose.yml                 |   47 [32m+[m
+ printer_service/docs/README.docker.md              |  100 [32m++[m
+ printer_service/docs/README.pypi.md                |   44 [32m+[m
+ printer_service/docs/TESTING.md                    |  190 [32m+++[m
+ printer_service/docs/advanced-usage.md             |  442 [32m+++++++[m
+ printer_service/docs/configuration.md              |  135 [32m++[m
+ printer_service/docs/design.md                     |  192 [32m+++[m
+ printer_service/docs/developing.md                 |  219 [32m++++[m
+ printer_service/docs/hardware.md                   |   45 [32m+[m
+ printer_service/docs/labejetti_screenshot.png      |  Bin [31m0[m -> [32m87314[m bytes
+ printer_service/docs/roadmap.md                    |   70 [32m++[m
+ printer_service/docs/setup.md                      |   94 [32m++[m
+ printer_service/docs/updating.md                   |   98 [32m++[m
+ printer_service/pyproject.toml                     |   67 [32m+[m
+ printer_service/sample.env                         |  132 [32m++[m
+ printer_service/src/labeljetty/__init__.py         |    3 [32m+[m
+ printer_service/src/labeljetty/__main__.py         |    3 [32m+[m
+ printer_service/src/labeljetty/app.py              |   71 [32m++[m
+ printer_service/src/labeljetty/config.py           |  440 [32m+++++++[m
+ printer_service/src/labeljetty/core/__init__.py    |    0
+ printer_service/src/labeljetty/core/db.py          |  179 [32m+++[m
+ printer_service/src/labeljetty/core/logging.py     |  177 [32m+++[m
+ printer_service/src/labeljetty/core/sqltypes.py    |   25 [32m+[m
+ .../src/labeljetty/integrations/__init__.py        |    0
+ .../src/labeljetty/integrations/homebox.py         |  142 [32m+++[m
+ printer_service/src/labeljetty/printer/__init__.py |   15 [32m+[m
+ .../src/labeljetty/printer/connection.py           |  638 [32m++++++++++[m
+ printer_service/src/labeljetty/printer/render.py   |  128 [32m++[m
+ printer_service/src/labeljetty/printer/tspl.py     | 1285 [32m++++++++++++++++++++[m
+ printer_service/src/labeljetty/service/__init__.py |    0
+ printer_service/src/labeljetty/service/worker.py   |  358 [32m++++++[m
+ printer_service/src/labeljetty/testbench.py        |  310 [32m+++++[m
+ printer_service/src/labeljetty/update.py           |  139 [32m+++[m
+ printer_service/src/labeljetty/version.py          |   41 [32m+[m
+ printer_service/src/labeljetty/web/__init__.py     |    0
+ printer_service/src/labeljetty/web/api.py          |  540 [32m++++++++[m
+ printer_service/src/labeljetty/web/app.py          |  163 [32m+++[m
+ printer_service/src/labeljetty/web/auth.py         |  202 [32m+++[m
+ printer_service/src/labeljetty/web/password.py     |   84 [32m++[m
+ .../src/labeljetty/web/static/htmx.min.js          |    1 [32m+[m
+ .../src/labeljetty/web/static/style.css            |  213 [32m++++[m
+ .../src/labeljetty/web/templates/_homebox.html     |   23 [32m+[m
+ .../labeljetty/web/templates/_homebox_results.html |   32 [32m+[m
+ .../src/labeljetty/web/templates/_jobs.html        |   20 [32m+[m
+ .../src/labeljetty/web/templates/_preview.html     |   14 [32m+[m
+ .../labeljetty/web/templates/_print_result.html    |    5 [32m+[m
+ .../src/labeljetty/web/templates/_status.html      |   66 [32m+[m
+ .../src/labeljetty/web/templates/_update.html      |   12 [32m+[m
+ .../src/labeljetty/web/templates/base.html         |   38 [32m+[m
+ .../labeljetty/web/templates/homebox_setup.html    |   67 [32m+[m
+ .../src/labeljetty/web/templates/index.html        |  202 [32m+++[m
+ .../src/labeljetty/web/templates/login.html        |   23 [32m+[m
+ .../src/labeljetty/web/templates/settings.html     |  173 [32m+++[m
+ printer_service/src/labeljetty/web/ui.py           |  924 [32m++++++++++++++[m
+ printer_service/tests/__init__.py                  |    0
+ printer_service/tests/conftest.py                  |  226 [32m++++[m
+ printer_service/tests/fixtures/label_test.png      |  Bin [31m0[m -> [32m12114[m bytes
+ printer_service/tests/fixtures/label_test2.png     |  Bin [31m0[m -> [32m13462[m bytes
+ printer_service/tests/fixtures/label_test3.png     |  Bin [31m0[m -> [32m13123[m bytes
+ printer_service/tests/fixtures/label_test4.png     |  Bin [31m0[m -> [32m18405[m bytes
+ printer_service/tests/test_api.py                  |  243 [32m++++[m
+ printer_service/tests/test_auth.py                 |  166 [32m+++[m
+ printer_service/tests/test_config.py               |  131 [32m++[m
+ printer_service/tests/test_connection.py           |  257 [32m++++[m
+ printer_service/tests/test_db.py                   |   91 [32m++[m
+ printer_service/tests/test_homebox.py              |  150 [32m+++[m
+ printer_service/tests/test_render.py               |   90 [32m++[m
+ printer_service/tests/test_settings.py             |  240 [32m++++[m
+ printer_service/tests/test_status_message.py       |   49 [32m+[m
+ printer_service/tests/test_tspl.py                 |  216 [32m++++[m
+ printer_service/tests/test_ui.py                   |  199 [32m+++[m
+ printer_service/tests/test_update.py               |  130 [32m++[m
+ printer_service/tests/test_worker.py               |  158 [32m+++[m
+ printer_service/uv.lock                            | 1013 [32m+++++++++++++++[m
+ 109 files changed, 13749 insertions(+)

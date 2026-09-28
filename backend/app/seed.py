@@ -1,12 +1,20 @@
 from sqlalchemy.orm import Session
-from .models import User, Specification, LabelTemplate, LabelVariant
+from .models import User, Specification, LabelTemplate, LabelVariant, Machine
 
 USERS = [
-    ("Поляков Борис Сергеевич", "naladchik", "1001"),
-    ("Скачкова Ольга Григорьевна", "upakovshchik", "1002"),
-    ("Игамбетова Динара Маратовна", "upakovshchik", "1003"),
-    ("Сайпова Гульнара Шавкатовна", "upakovshchik", "1004"),
-    ("Иванов Иван Иванович", "pomoshchnik", "1005"),
+    ("Поляков Борис Сергеевич",   "naladchik",     "1001", "0001"),
+    ("Скачкова Ольга Григорьевна","upakovshchik",  "1002", "0002"),
+    ("Игамбетова Динара Маратовна","upakovshchik", "1003", "0003"),
+    ("Сайпова Гульнара Шавкатовна","upakovshchik", "1004", "0004"),
+    ("Иванов Иван Иванович",      "pomoshchnik",   "1005", "0005"),
+]
+
+MACHINES = [
+    ("КП1", "Станок КП1"),
+    ("КП2", "Станок КП2"),
+    ("КП3", "Станок КП3"),
+    ("КП4", "Станок КП4"),
+    ("КП5", "Станок КП5"),
 ]
 
 PACKS = [
@@ -122,8 +130,8 @@ VARIANTS = [
 
 def seed(db: Session):
     if db.query(User).count() == 0:
-        for name, role, pin in USERS:
-            db.add(User(full_name=name, role=role, pin=pin))
+        for name, role, pin, emp_code in USERS:
+            db.add(User(full_name=name, role=role, pin=pin, employee_code=emp_code))
 
     if db.query(LabelTemplate).count() == 0:
         for t in TEMPLATES:
@@ -132,6 +140,11 @@ def seed(db: Session):
                 code=code, name=name, template_content=content,
                 producer_info=(rest[0] if rest else None),
             ))
+
+    from .models import Machine  # добавь импорт вверху файла
+    if db.query(Machine).count() == 0:
+        for code, name in MACHINES:
+            db.add(Machine(code=code, name=name))
 
     if db.query(Specification).count() == 0:
         for sku, name in FILMS.items():
