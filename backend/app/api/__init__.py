@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from . import auth, shifts, specifications, boxes, variants, machines, users, templates, print_runs
+from . import auth, shifts, specifications, boxes, variants, machines, users, templates, print_runs, reports
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(auth.router)
@@ -11,3 +11,4 @@ api_router.include_router(variants.router)
 api_router.include_router(machines.router)
 api_router.include_router(boxes.router)
 api_router.include_router(print_runs.router)
+api_router.include_router(reports.router)

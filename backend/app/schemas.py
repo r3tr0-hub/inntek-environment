@@ -287,3 +287,59 @@ class PrintRunResult(BaseModel):
     transport: str
     print_status: str
     details: dict
+
+# ─── Отчёт по смене ───
+
+class ReportUserShort(BaseModel):
+    user_id: int
+    full_name: str
+    employee_code: str
+
+
+class ReportPacker(BaseModel):
+    user_id: int
+    full_name: str
+    employee_code: str
+    boxes_labeled: int
+    machines: list[str]
+
+
+class ReportSpec(BaseModel):
+    spec_id: int
+    sku_1c: str
+    name_1c: str
+    size_label: str
+    boxes_labeled: int
+    total_packets: int
+
+
+class ReportMachine(BaseModel):
+    machine_id: int
+    code: str
+    name: str
+    boxes_labeled: int
+
+
+class ReportTotals(BaseModel):
+    boxes_printed: int
+    boxes_labeled: int
+    boxes_cancelled: int
+    boxes_quarantined: int
+    total_packets: int
+
+
+class ShiftReport(BaseModel):
+    shift_id: int
+    date: date
+    shift_number: int
+    status: str
+    opened_at: datetime
+    closed_at: datetime | None = None
+    duration_minutes: int
+    operator: ReportUserShort | None = None
+    helpers: list[ReportUserShort] = []
+    stagers: list[ReportUserShort] = []
+    packers: list[ReportPacker] = []
+    specifications: list[ReportSpec] = []
+    machines: list[ReportMachine] = []
+    totals: ReportTotals
