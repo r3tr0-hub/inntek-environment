@@ -91,9 +91,29 @@ class Box(Base):
     operator_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.user_id"), nullable=True)
     packer_fio: Mapped[str | None] = mapped_column(String(150), nullable=True)
     operator_fio: Mapped[str | None] = mapped_column(String(150), nullable=True)
+
     printed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    labeled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    labeled_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.user_id"), nullable=True)
+
+    quarantined_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    quarantined_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.user_id"), nullable=True)
+    quarantine_reason: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    cancelled_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.user_id"), nullable=True)
+    cancel_reason: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
     status: Mapped[str] = mapped_column(String(20), default="created")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('created','printed','labeled','quarantined','cancelled','on_pallet','shipped')",
+            name="ck_box_status",
+        ),
+    )
 
 class PrintJob(Base):
     __tablename__ = "print_jobs"

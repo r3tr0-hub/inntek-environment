@@ -207,4 +207,39 @@ class BoxOut(BaseModel):
     box_number_in_shift: int | None
     status: str
     machine_id: int | None = None
+    printed_at: datetime | None = None
+    labeled_at: datetime | None = None
+    quarantined_at: datetime | None = None
+    quarantine_reason: str | None = None
+    cancelled_at: datetime | None = None
+    cancel_reason: str | None = None
     created_at: datetime
+
+# ─── Box actions ───
+
+class BoxQuarantine(BaseModel):
+    reason: str
+
+
+class BoxCancel(BaseModel):
+    reason: str
+
+
+class BoxScanIn(BaseModel):
+    """Сканирование коробки упаковщиком через ТСД.
+    ТСД хранит PIN упаковщика и отправляет его в каждом запросе."""
+    pin: str
+    qr: str  # сырое содержимое QR или box_barcode
+
+
+class BoxScanOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    box_id: int
+    box_uid: int
+    box_barcode: str
+    status: str
+    spec_id: int
+    variant_id: int
+    machine_id: int | None
+    box_number_in_shift: int | None
+    labeled_at: datetime | None
