@@ -243,3 +243,47 @@ class BoxScanOut(BaseModel):
     machine_id: int | None
     box_number_in_shift: int | None
     labeled_at: datetime | None
+
+# ─── Print runs ───
+
+class PrintRunCreate(BaseModel):
+    spec_id: int
+    variant_id: int
+    shift_id: int
+    machine_id: int
+    quantity: int
+    quantity_total: int
+    quantity_packs: int | None = None
+    quantity_per_pack: int | None = None
+    operator_user_id: int
+
+
+class PrintRunCancel(BaseModel):
+    reason: str
+
+
+class PrintRunOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    run_id: int
+    spec_id: int
+    variant_id: int
+    shift_id: int
+    machine_id: int
+    operator_user_id: int | None = None
+    packer_user_id: int | None = None
+    quantity: int
+    batch_number: str | None = None
+    status: str
+    cancelled_at: datetime | None = None
+    cancel_reason: str | None = None
+    created_at: datetime
+
+
+class PrintRunResult(BaseModel):
+    run_id: int
+    quantity: int
+    first_box_uid: int
+    last_box_uid: int
+    transport: str
+    print_status: str
+    details: dict

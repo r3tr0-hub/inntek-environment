@@ -48,3 +48,12 @@ def build_tspl(db, box: Box) -> str:
         "batch_number": box.batch_number or "",
     }
     return Template(template.template_content).render(**context)
+
+def build_tspl_for_run(db, boxes: list[Box]) -> str:
+    """Собирает один TSPL со всеми этикетками партии.
+    Каждая этикетка — полный блок (SIZE ... PRINT 1,1), они склеиваются через \\n.
+    Принтер обрабатывает последовательно, печатает N штук подряд."""
+    parts = []
+    for box in boxes:
+        parts.append(build_tspl(db, box))
+    return "\n".join(parts)
