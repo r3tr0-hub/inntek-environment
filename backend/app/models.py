@@ -4,6 +4,7 @@ from sqlalchemy import (
     ForeignKey, Sequence, CheckConstraint, func, JSON, Text
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.dialects.postgresql import JSONB
 from .database import Base
 
 box_uid_seq = Sequence("box_uid_seq", start=1)
@@ -57,6 +58,7 @@ class LabelTemplate(Base):
     name: Mapped[str] = mapped_column(String(100))
     template_content: Mapped[str] = mapped_column(Text)
     producer_info: Mapped[str | None] = mapped_column(Text, nullable=True)
+    layout_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
 class LabelVariant(Base):

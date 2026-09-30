@@ -5,6 +5,7 @@ import fastapi_swagger_dark as fsd
 from .database import Base, engine, SessionLocal
 from .api import api_router
 from .seed import seed
+from .api import label_designer
 
 SEED_ENABLED = os.getenv("SEED_ENABLED", "false").lower() in ("1", "true", "yes")
 
@@ -31,3 +32,4 @@ def root():
     return {"service": "INNTEK ENVIRONMENT", "status": "ok"}
 
 app.include_router(api_router)
+app.include_router(label_designer.router)

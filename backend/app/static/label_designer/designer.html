@@ -1,0 +1,1616 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Конструктор макетов — INNTEK</title>
+<style>
+  /* ─── База ─── */
+  :root {
+    --bg: #0f1115; --panel: #181b22; --panel-2: #20242e;
+    --border: #2a2f3a; --text: #e6e8ec; --muted: #9aa3b2;
+    --accent: #4c8dff; --accent-press: #3b73d6;
+    --ok: #3fb950; --warn: #d29922; --err: #f85149;
+    --radius: 8px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    background: var(--bg); color: var(--text);
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+
+  /* ─── Шапка ─── */
+  header {
+    background: var(--panel); border-bottom: 1px solid var(--border);
+    padding: 8px 14px; display: flex; align-items: center; gap: 12px;
+    flex-shrink: 0;
+  }
+  header h1 { font-size: 15px; font-weight: 600; margin: 0; color: var(--muted); }
+  header .spacer { flex: 1; }
+  header select, header button {
+    background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 6px 10px; font-size: 13px; cursor: pointer;
+    font-family: inherit;
+  }
+  header button.primary {
+    background: var(--accent); color: #fff; border-color: transparent;
+    font-weight: 600;
+  }
+  header button.primary:active { background: var(--accent-press); }
+  header button:disabled { opacity: 0.5; cursor: not-allowed; }
+  header label.toggle {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 13px; color: var(--muted); cursor: pointer;
+  }
+  header .dirty { color: var(--warn); margin-left: -4px; font-size: 16px; }
+
+  /* ─── Три колонки ─── */
+  main {
+    flex: 1; display: grid;
+    grid-template-columns: 280px 1fr 320px;
+    overflow: hidden;
+  }
+  aside {
+    background: var(--panel); overflow-y: auto; padding: 12px;
+  }
+  #palette { border-right: 1px solid var(--border); }
+  #properties { border-left: 1px solid var(--border); }
+  aside h2 {
+    font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--muted);
+    margin: 0 0 8px; font-weight: 600;
+  }
+
+  /* ─── Холст ─── */
+  #canvas-area {
+    background: #0a0c10; display: flex; align-items: center;
+    justify-content: center; padding: 20px; overflow: hidden;
+  }
+  #canvas {
+    width: 100%; height: 100%;
+    max-width: 100%; max-height: 100%;
+    background: #fff;
+    box-shadow: 0 0 24px rgba(0,0,0,.6);
+    touch-action: none;
+  }
+
+  /* ─── Палитра ─── */
+  .search-input {
+    width: 100%; background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 7px 10px; font-size: 13px; font-family: inherit;
+    margin-bottom: 10px;
+  }
+  .search-input:focus { outline: none; border-color: var(--accent); }
+  .palette-section { margin-bottom: 14px; }
+  .palette-section-title {
+    font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--muted);
+    margin: 0 0 6px; font-weight: 600;
+  }
+  .palette-group { margin-bottom: 8px; }
+  .palette-group summary {
+    cursor: pointer; list-style: none;
+    font-size: 12px; color: var(--muted);
+    padding: 4px 6px; border-radius: 4px; user-select: none;
+  }
+  .palette-group summary::before { content: "▸ "; }
+  .palette-group[open] summary::before { content: "▾ "; }
+  .palette-group summary:hover { background: var(--panel-2); }
+  .palette-group[open] summary { color: var(--text); }
+  .chip {
+    display: block; cursor: grab;
+    background: var(--panel-2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 6px 9px; margin: 4px 0;
+    user-select: none; transition: border-color .1s, background .1s;
+  }
+  .chip:hover { border-color: var(--accent); }
+  .chip:active { cursor: grabbing; }
+  .chip .name {
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12px; color: var(--text);
+  }
+  .chip .example {
+    font-size: 11px; color: var(--muted);
+    margin-top: 2px; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  .chip .example.mono { font-family: ui-monospace, monospace; }
+
+  /* ─── Призрак drag ─── */
+  .drag-ghost {
+    position: fixed; pointer-events: none; z-index: 1000;
+    background: rgba(76,141,255,.85); color: #fff;
+    padding: 4px 8px; border-radius: 4px;
+    font-size: 12px; transform: translate(-50%, -50%);
+    box-shadow: 0 2px 8px rgba(0,0,0,.4);
+  }
+
+  /* ─── Панель свойств ─── */
+  .prop-field { margin-bottom: 10px; }
+  .prop-field label {
+    display: block; font-size: 12px; color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .prop-field label .hint { color: #556; margin-left: 4px; font-size: 11px; }
+  .prop-field input,
+  .prop-field select,
+  .prop-field textarea {
+    width: 100%; background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 6px 9px; font-size: 13px; font-family: inherit;
+  }
+  .prop-field input:focus,
+  .prop-field select:focus,
+  .prop-field textarea:focus { outline: none; border-color: var(--accent); }
+  .prop-field textarea {
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    resize: vertical; min-height: 48px;
+  }
+  .prop-field input[type="checkbox"] {
+    width: auto; margin-right: 6px; vertical-align: middle;
+  }
+  .prop-field .row { display: flex; gap: 8px; }
+  .prop-field .row > * { flex: 1; }
+  .prop-info {
+    background: var(--panel-2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 8px 10px; margin: 10px 0;
+    font-size: 11px; color: var(--muted); line-height: 1.4;
+  }
+  .prop-info.warn { color: var(--warn); border-color: #4a3a1c; }
+  .btn-danger {
+    width: 100%; background: transparent; color: var(--err);
+    border: 1px solid var(--err); border-radius: 6px;
+    padding: 7px 10px; font-size: 13px; cursor: pointer;
+    font-family: inherit; margin-top: 12px;
+  }
+  .btn-danger:hover { background: rgba(248,81,73,.1); }
+  .empty-hint {
+    color: var(--muted); font-size: 13px;
+    text-align: center; padding: 40px 10px;
+  }
+  details.prop-advanced {
+    margin-top: 12px; border-top: 1px solid var(--border);
+    padding-top: 8px;
+  }
+  details.prop-advanced summary {
+    cursor: pointer; font-size: 12px; color: var(--muted);
+    user-select: none;
+  }
+  details.prop-advanced[open] summary { color: var(--text); margin-bottom: 8px; }
+
+  /* ─── Toast ─── */
+  #toast {
+    position: fixed; bottom: 20px; left: 50%;
+    transform: translateX(-50%);
+    padding: 10px 18px; border-radius: 8px;
+    font-size: 13px; z-index: 2000;
+    display: none; max-width: 500px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.4);
+  }
+  #toast.ok { background: #1a3a1d; color: #7ee787; border: 1px solid #2d5a33; }
+  #toast.error { background: #3a1d1d; color: #ff7b72; border: 1px solid #5a2d2d; }
+
+  /* ─── Диалоги ─── */
+  dialog {
+    background: var(--panel); color: var(--text);
+    border: 1px solid var(--border); border-radius: 10px;
+    padding: 20px 22px; min-width: 380px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.7);
+  }
+  dialog::backdrop { background: rgba(0,0,0,.6); }
+  dialog h3 { margin: 0 0 14px; font-size: 15px; font-weight: 600; }
+  dialog .prop-field { margin-bottom: 12px; }
+  dialog .dialog-btns {
+    display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px;
+  }
+  dialog .dialog-btns button {
+    background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 7px 14px; cursor: pointer; font-size: 13px;
+    font-family: inherit;
+  }
+  dialog .dialog-btns button.primary {
+    background: var(--accent); color: #fff; border-color: transparent;
+    font-weight: 600;
+  }
+  dialog .dialog-btns button.primary:active { background: var(--accent-press); }
+  dialog .prop-field input[disabled] {
+    opacity: 0.5; cursor: not-allowed;
+  }
+
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Конструктор макетов</h1>
+  <select id="template-select" title="Шаблон">
+    <option>Загрузка…</option>
+  </select>
+  <button id="new-template-btn" title="Создать новый шаблон">+ Новый</button>
+  <button id="edit-template-btn" title="Настройки текущего шаблона">⚙</button>
+  <span class="dirty" id="dirty-marker" title="Есть несохранённые изменения" style="display:none">●</span>
+  <span class="spacer"></span>
+  <label class="toggle" title="Округлять координаты до 5 точек">
+    <input type="checkbox" id="snap-toggle"> Сетка 5
+  </label>
+  <button id="save-btn" class="primary" disabled>Сохранить</button>
+</header>
+
+<main>
+  <aside id="palette">
+    <input type="text" class="search-input" id="palette-search"
+           placeholder="Поиск переменной…">
+    <div id="palette-content">
+      <div class="empty-hint">Загрузка…</div>
+    </div>
+  </aside>
+
+  <section id="canvas-area">
+    <svg id="canvas" xmlns="http://www.w3.org/2000/svg"
+         viewBox="0 0 960 600" preserveAspectRatio="xMidYMid meet">
+      <rect id="canvas-bg" x="0" y="0" width="960" height="600" fill="#fff"/>
+      <g id="elements-layer"></g>
+    </svg>
+  </section>
+
+  <aside id="properties">
+    <h2>Свойства</h2>
+    <div id="properties-content">
+      <div class="empty-hint">Выберите элемент на холсте<br>или перетащите из палитры</div>
+    </div>
+  </aside>
+</main>
+
+<dialog id="new-template-dialog">
+  <h3>Новый шаблон</h3>
+  <div class="prop-field">
+    <label>Код <span class="hint">латиницей, A-Z 0-9 _ -, до 20</span></label>
+    <input id="nt-code" type="text" maxlength="20" pattern="[A-Za-z0-9_\-]+">
+  </div>
+  <div class="prop-field">
+    <label>Название</label>
+    <input id="nt-name" type="text" maxlength="100">
+  </div>
+  <div class="prop-field">
+    <label>Информация о производителе <span class="hint">опционально</span></label>
+    <input id="nt-producer" type="text" maxlength="300">
+  </div>
+  <div class="dialog-btns">
+    <button type="button" id="nt-cancel">Отмена</button>
+    <button type="button" id="nt-create" class="primary">Создать</button>
+  </div>
+</dialog>
+
+<dialog id="edit-template-dialog">
+  <h3>Настройки шаблона</h3>
+  <div class="prop-field">
+    <label>Код <span class="hint">изменять нельзя</span></label>
+    <input id="et-code" type="text" disabled>
+  </div>
+  <div class="prop-field">
+    <label>Название</label>
+    <input id="et-name" type="text" maxlength="100">
+  </div>
+  <div class="prop-field">
+    <label>Информация о производителе</label>
+    <input id="et-producer" type="text" maxlength="300">
+  </div>
+  <div class="prop-field">
+    <label>
+      <input id="et-active" type="checkbox" style="width:auto;margin-right:6px">
+      Активен
+    </label>
+  </div>
+  <div class="dialog-btns">
+    <button type="button" id="et-cancel">Отмена</button>
+    <button type="button" id="et-save" class="primary">Сохранить</button>
+  </div>
+</dialog>
+
+<div id="toast"></div>
+
+<script>
+"use strict";
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   СЕКЦИЯ 1. Константы и утилиты
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+// Базовые высоты встроенных шрифтов TSPL, в точках (203 dpi).
+const FONT_BASE_HEIGHT = { "1": 12, "2": 20, "3": 24, "4": 32, "5": 48 };
+
+// Ширина штрихкода в превью — только для отображения, в JSON не пишется.
+const BARCODE_PREVIEW_WIDTH = 240;
+
+const CANVAS_DEFAULT = {
+  width: 960, height: 600, units: "dots", orientation: "landscape"
+};
+
+function uid() {
+  return "el_" + Date.now().toString(36) + "_" +
+         Math.random().toString(36).slice(2, 7);
+}
+
+function showToast(msg, kind = "ok") {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.className = kind;
+  t.style.display = "block";
+  clearTimeout(showToast._timer);
+  showToast._timer = setTimeout(() => { t.style.display = "none"; }, 3500);
+}
+
+function substituteVars(text) {
+  if (!text) return "";
+  return text.replace(/\{\{(\w+)\}\}/g, (m, name) => {
+    const v = state.exampleValues[name];
+    return v !== undefined ? String(v) : m;
+  });
+}
+
+function fontBase(fontName) {
+  return FONT_BASE_HEIGHT[fontName] || 24;
+}
+
+function clientToCanvas(svg, cx, cy) {
+  const pt = svg.createSVGPoint();
+  pt.x = cx; pt.y = cy;
+  const m = svg.getScreenCTM();
+  if (!m) return { x: 0, y: 0 };
+  const p = pt.matrixTransform(m.inverse());
+  return { x: p.x, y: p.y };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   СЕКЦИЯ 2. Состояние приложения
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+const state = {
+  canvas: { ...CANVAS_DEFAULT },
+  elements: [],
+  selectedId: null,
+  variables: [],
+  exampleValues: {},
+  templates: [],
+  currentTemplateId: null,
+  dirty: false,
+  snapEnabled: false,
+  snapSize: 5,
+  searchQuery: "",
+};
+
+function markDirty() {
+  state.dirty = true;
+  document.getElementById("dirty-marker").style.display = "";
+}
+function clearDirty() {
+  state.dirty = false;
+  document.getElementById("dirty-marker").style.display = "none";
+}
+function snap(value) {
+  if (!state.snapEnabled) return Math.round(value);
+  return Math.round(value / state.snapSize) * state.snapSize;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   СЕКЦИЯ 3. Работа с API
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+async function loadVariables() {
+  try {
+    const r = await fetch("/api/label-designer/variables");
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const data = await r.json();
+    state.variables = data.variables || [];
+    state.exampleValues = data.example_values || {};
+  } catch (e) {
+    showToast("Не удалось загрузить переменные: " + e.message, "error");
+  }
+}
+
+async function loadTemplates() {
+  try {
+    const r = await fetch("/api/v1/templates?active=true");
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    state.templates = await r.json();
+  } catch (e) {
+    showToast("Не удалось загрузить шаблоны: " + e.message, "error");
+    state.templates = [];
+  }
+  renderTemplateSelect();
+}
+
+function renderTemplateSelect() {
+  const sel = document.getElementById("template-select");
+  sel.innerHTML = "";
+  if (!state.templates.length) {
+    sel.innerHTML = '<option>(нет шаблонов)</option>';
+    sel.disabled = true;
+    document.getElementById("save-btn").disabled = true;
+    return;
+  }
+  sel.disabled = false;
+  document.getElementById("save-btn").disabled = false;
+  for (const t of state.templates) {
+    const o = document.createElement("option");
+    o.value = t.template_id;
+    o.textContent = `${t.code} — ${t.name}`;
+    sel.appendChild(o);
+  }
+}
+
+async function selectTemplate(templateId) {
+  if (state.dirty && !confirm("Есть несохранённые изменения. Потерять?")) {
+    document.getElementById("template-select").value =
+      state.currentTemplateId || "";
+    return;
+  }
+  state.currentTemplateId = Number(templateId);
+  state.selectedId = null;
+  state.elements = [];
+  state.canvas = { ...CANVAS_DEFAULT };
+  clearDirty();
+  await loadLayout(state.currentTemplateId);
+  renderAll();
+}
+
+async function loadLayout(templateId) {
+  let r;
+  try {
+    r = await fetch(`/api/label-designer/layout/${templateId}`);
+  } catch (e) {
+    showToast("Сеть: " + e.message, "error");
+    return;
+  }
+  if (r.status === 404) return;  // нет layout — начинаем с пустого
+  if (!r.ok) {
+    showToast(`Ошибка загрузки макета: HTTP ${r.status}`, "error");
+    return;
+  }
+  const data = await r.json();
+  if (!validateLayout(data)) {
+    showToast("layout_json не соответствует схеме — не загружаю. " +
+              "Проверь содержимое в БД или создай макет заново.", "error");
+    state.elements = [];
+    state.canvas = { ...CANVAS_DEFAULT };
+    return;
+  }
+  state.canvas = data.canvas;
+  state.elements = data.elements;
+}
+
+// Клиентская валидация. Сервер всё равно проверит через Pydantic при PUT.
+function validateLayout(data) {
+  if (!data || typeof data !== "object") return false;
+  if (data.version !== 1) return false;
+  const c = data.canvas;
+  if (!c || typeof c.width !== "number" || typeof c.height !== "number") return false;
+  if (!Array.isArray(data.elements)) return false;
+  for (const el of data.elements) {
+    if (!el || typeof el !== "object") return false;
+    if (typeof el.id !== "string" || !el.id) return false;
+    if (!validateElement(el)) return false;
+  }
+  return true;
+}
+
+function validateElement(el) {
+  switch (el.type) {
+    case "text":
+      return isNum(el.x) && isNum(el.y) && isNum(el.width) && isNum(el.height)
+          && typeof el.text === "string"
+          && ["1","2","3","4","5"].includes(el.fontName)
+          && isNum(el.xMul) && isNum(el.yMul)
+          && ["left","center","right"].includes(el.alignment);
+    case "qr":
+      return isNum(el.x) && isNum(el.y) && isNum(el.size)
+          && typeof el.content === "string"
+          && ["L","M","Q","H"].includes(el.ecc)
+          && ["M1","M2"].includes(el.model)
+          && isNum(el.cell);
+    case "barcode":
+      return isNum(el.x) && isNum(el.y) && isNum(el.height)
+          && typeof el.content === "string"
+          && el.barcodeType === "EAN13"
+          && typeof el.humanReadable === "boolean";
+    case "line":
+      return isNum(el.x1) && isNum(el.y1) && isNum(el.x2) && isNum(el.y2)
+          && isNum(el.thickness);
+    case "rect":
+      return isNum(el.x) && isNum(el.y) && isNum(el.width) && isNum(el.height)
+          && isNum(el.thickness);
+    default:
+      return false;
+  }
+}
+
+function isNum(v) { return typeof v === "number" && !isNaN(v); }
+
+async function saveLayout() {
+  if (!state.currentTemplateId) return;
+  const payload = {
+    version: 1,
+    canvas: state.canvas,
+    elements: state.elements,
+  };
+  let r;
+  try {
+    r = await fetch(`/api/label-designer/layout/${state.currentTemplateId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  } catch (e) {
+    showToast("Сеть: " + e.message, "error");
+    return;
+  }
+  if (r.ok) {
+    clearDirty();
+    showToast("Сохранено", "ok");
+  } else {
+    let detail = "";
+    try { detail = JSON.stringify(await r.json()); }
+    catch (e) { detail = await r.text(); }
+    showToast(`Ошибка сохранения ${r.status}: ${detail.slice(0, 300)}`, "error");
+  }
+}
+
+async function createNewTemplate(code, name, producerInfo) {
+  const payload = {
+    code,
+    name,
+    // template_content в схеме обязателен; используем заглушку — при наличии
+    // layout_json старая ветка не сработает.
+    template_content: "# Создано в конструкторе макетов. Активный макет — в layout_json.\n",
+    producer_info: producerInfo || null,
+  };
+  let r;
+  try {
+    r = await fetch("/api/v1/templates", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  } catch (e) {
+    showToast("Сеть: " + e.message, "error");
+    return null;
+  }
+  if (!r.ok) {
+    let detail = "";
+    try { detail = (await r.json()).detail; } catch (e) { detail = await r.text(); }
+    showToast(`Не удалось создать: ${r.status} ${detail}`, "error");
+    return null;
+  }
+  return await r.json();
+}
+
+async function updateTemplate(templateId, fields) {
+  let r;
+  try {
+    r = await fetch(`/api/v1/templates/${templateId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(fields),
+    });
+  } catch (e) {
+    showToast("Сеть: " + e.message, "error");
+    return null;
+  }
+  if (!r.ok) {
+    let detail = "";
+    try { detail = (await r.json()).detail; } catch (e) { detail = await r.text(); }
+    showToast(`Не удалось сохранить: ${r.status} ${detail}`, "error");
+    return null;
+  }
+  return await r.json();
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   СЕКЦИЯ 4. Палитра
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function renderPalette() {
+  const container = document.getElementById("palette-content");
+  container.innerHTML = "";
+
+  // «Статика» — только текст
+  const staticSection = document.createElement("div");
+  staticSection.className = "palette-section";
+  staticSection.innerHTML = '<div class="palette-section-title">Статика</div>';
+  staticSection.appendChild(makeChip({
+    name: "Текст",
+    example: "Курьерский пакет",
+    item: { kind: "text" },
+  }));
+  container.appendChild(staticSection);
+
+  // «Фигуры»
+  const figuresSection = document.createElement("div");
+  figuresSection.className = "palette-section";
+  figuresSection.innerHTML = '<div class="palette-section-title">Фигуры</div>';
+  figuresSection.appendChild(makeChip({
+    name: "QR-код",
+    example: "{{qr_content}}", exampleMono: true,
+    item: { kind: "qr" },
+  }));
+  figuresSection.appendChild(makeChip({
+    name: "Штрихкод EAN-13",
+    example: "{{barcode}}", exampleMono: true,
+    item: { kind: "barcode" },
+  }));
+  figuresSection.appendChild(makeChip({
+    name: "Линия",
+    example: "─── горизонтальная",
+    item: { kind: "line" },
+  }));
+  figuresSection.appendChild(makeChip({
+    name: "Прямоугольник",
+    example: "□ рамка",
+    item: { kind: "rect" },
+  }));
+  container.appendChild(figuresSection);
+
+  // «Переменные»
+  const varsSection = document.createElement("div");
+  varsSection.className = "palette-section";
+  varsSection.innerHTML = '<div class="palette-section-title">Переменные</div>';
+
+  const q = state.searchQuery.trim().toLowerCase();
+  const filtered = q
+    ? state.variables.filter(v =>
+        v.name.toLowerCase().includes(q) ||
+        v.label.toLowerCase().includes(q))
+    : state.variables;
+
+  if (q) {
+    if (!filtered.length) {
+      varsSection.innerHTML +=
+        '<div style="color:var(--muted);font-size:12px;padding:6px">Ничего не найдено</div>';
+    } else {
+      for (const v of filtered) varsSection.appendChild(makeVarChip(v));
+    }
+  } else {
+    const groups = new Map();
+    for (const v of state.variables) {
+      if (!groups.has(v.group)) groups.set(v.group, []);
+      groups.get(v.group).push(v);
+    }
+    for (const [groupName, items] of groups) {
+      const details = document.createElement("details");
+      details.className = "palette-group";
+      details.open = true;
+      const summary = document.createElement("summary");
+      summary.textContent = `${groupName} (${items.length})`;
+      details.appendChild(summary);
+      for (const v of items) details.appendChild(makeVarChip(v));
+      varsSection.appendChild(details);
+    }
+  }
+  container.appendChild(varsSection);
+}
+
+function makeVarChip(v) {
+  return makeChip({
+    name: `{{${v.name}}}`,
+    example: v.example || v.label,
+    exampleMono: true,
+    item: { kind: "variable", variable: v.name },
+  });
+}
+
+function makeChip({ name, example, exampleMono, item }) {
+  const el = document.createElement("div");
+  el.className = "chip";
+  const nameEl = document.createElement("div");
+  nameEl.className = "name";
+  nameEl.textContent = name;
+  el.appendChild(nameEl);
+  if (example) {
+    const ex = document.createElement("div");
+    ex.className = "example" + (exampleMono ? " mono" : "");
+    ex.textContent = example;
+    el.appendChild(ex);
+  }
+  el.addEventListener("pointerdown", (e) => startPaletteDrag(e, item, name));
+  return el;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   СЕКЦИЯ 5. Drag из палитры
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function startPaletteDrag(e, item, ghostLabel) {
+  e.preventDefault();
+
+  const ghost = document.createElement("div");
+  ghost.className = "drag-ghost";
+  ghost.textContent = ghostLabel;
+  document.body.appendChild(ghost);
+  moveGhost(e.clientX, e.clientY);
+
+  const svg = document.getElementById("canvas");
+
+  function moveGhost(x, y) {
+    ghost.style.left = x + "px";
+    ghost.style.top = y + "px";
+  }
+  function onMove(ev) { moveGhost(ev.clientX, ev.clientY); }
+  function onUp(ev) {
+    document.removeEventListener("pointermove", onMove);
+    document.removeEventListener("pointerup", onUp);
+    ghost.remove();
+
+    const rect = svg.getBoundingClientRect();
+    const inside = ev.clientX >= rect.left && ev.clientX <= rect.right
+                && ev.clientY >= rect.top  && ev.clientY <= rect.bottom;
+    if (!inside) return;
+
+    const pt = clientToCanvas(svg, ev.clientX, ev.clientY);
+    createElementAt(item, snap(pt.x), snap(pt.y));
+  }
+  document.addEventListener("pointermove", onMove);
+  document.addEventListener("pointerup", onUp);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   СЕКЦИЯ 6. Создание элементов
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function createElementAt(item, x, y) {
+  let el;
+  switch (item.kind) {
+    case "variable": el = createTextElement(x, y, `{{${item.variable}}}`); break;
+    case "text":     el = createTextElement(x, y, "Новый текст"); break;
+    case "qr":       el = createQrElement(x, y); break;
+    case "barcode":  el = createBarcodeElement(x, y); break;
+    case "line":     el = createLineElement(x, y); break;
+    case "rect":     el = createRectElement(x, y); break;
+    default: return;
+  }
+  state.elements.push(el);
+  state.selectedId = el.id;
+  markDirty();
+  renderAll();
+}
+
+function createTextElement(x, y, text) {
+  return {
+    type: "text",
+    id: uid(),
+    x: clampX(x), y: clampY(y),
+    width: 300, height: 40,
+    text,
+    fontName: "3", xMul: 2, yMul: 2,
+    rotation: 270,
+    alignment: "left",
+  };
+}
+
+function createQrElement(x, y) {
+  const size = 120;
+  return {
+    type: "qr",
+    id: uid(),
+    x: clampX(x, size), y: clampY(y, size),
+    content: "{{qr_content}}",
+    size,
+    model: "M2",
+    ecc: "M",
+    cell: 5,
+    mask: "S8",
+    rotation: 270,
+  };
+}
+
+function createBarcodeElement(x, y) {
+  const h = 60;
+  return {
+    type: "barcode",
+    id: uid(),
+    x: clampX(x, BARCODE_PREVIEW_WIDTH), y: clampY(y, h),
+    content: "{{barcode}}",
+    barcodeType: "EAN13",
+    height: h,
+    humanReadable: true,
+    rotation: 270,
+  };
+}
+
+function createLineElement(x, y) {
+  // Горизонтальная линия длиной 100 точек, центрированная на курсоре.
+  return {
+    type: "line",
+    id: uid(),
+    x1: clampX(x - 50), y1: clampY(y),
+    x2: clampX(x + 50), y2: clampY(y),
+    thickness: 2,
+  };
+}
+
+function createRectElement(x, y) {
+  const w = 200, h = 100;
+  return {
+    type: "rect",
+    id: uid(),
+    x: clampX(x, w), y: clampY(y, h),
+    width: w, height: h,
+    thickness: 2,
+  };
+}
+
+function clampX(v, w = 20) {
+  return Math.max(0, Math.min(state.canvas.width - w, Math.round(v)));
+}
+function clampY(v, h = 20) {
+  return Math.max(0, Math.min(state.canvas.height - h, Math.round(v)));
+}
+
+function deleteSelected() {
+  if (!state.selectedId) return;
+  const i = state.elements.findIndex(e => e.id === state.selectedId);
+  if (i === -1) return;
+  state.elements.splice(i, 1);
+  state.selectedId = null;
+  markDirty();
+  renderAll();
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   СЕКЦИЯ 7. Рендер холста
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function renderCanvas() {
+  const svg = document.getElementById("canvas");
+  svg.setAttribute("viewBox", `0 0 ${state.canvas.width} ${state.canvas.height}`);
+  const bg = document.getElementById("canvas-bg");
+  bg.setAttribute("width", state.canvas.width);
+  bg.setAttribute("height", state.canvas.height);
+
+  const layer = document.getElementById("elements-layer");
+  layer.innerHTML = "";
+  for (const el of state.elements) {
+    layer.appendChild(renderElement(el));
+  }
+}
+
+function renderElement(el) {
+  switch (el.type) {
+    case "text":    return renderTextElement(el);
+    case "qr":      return renderQrElement(el);
+    case "barcode": return renderBarcodeElement(el);
+    case "line":    return renderLineElement(el);
+    case "rect":    return renderRectElement(el);
+    default:        return document.createElementNS(SVG_NS, "g");
+  }
+}
+
+function baseGroup(el) {
+  const g = document.createElementNS(SVG_NS, "g");
+  g.setAttribute("data-id", el.id);
+  g.style.cursor = "move";
+  g.addEventListener("pointerdown", (e) => startElementDrag(e, el));
+  return g;
+}
+
+function addSelectionRect(g, x, y, w, h) {
+  const rect = document.createElementNS(SVG_NS, "rect");
+  rect.setAttribute("x", x - 3);
+  rect.setAttribute("y", y - 3);
+  rect.setAttribute("width", w + 6);
+  rect.setAttribute("height", h + 6);
+  rect.setAttribute("fill", "none");
+  rect.setAttribute("stroke", "#4c8dff");
+  rect.setAttribute("stroke-width", "1.5");
+  rect.setAttribute("stroke-dasharray", "5 3");
+  rect.setAttribute("pointer-events", "none");
+  g.appendChild(rect);
+}
+
+/* ─── Text ─── */
+function renderTextElement(el) {
+  const g = baseGroup(el);
+
+  const text = document.createElementNS(SVG_NS, "text");
+  text.textContent = substituteVars(el.text);
+  text.setAttribute("font-family", "ui-monospace, Menlo, Consolas, monospace");
+  text.setAttribute("font-size", fontBase(el.fontName) * (el.yMul || 1));
+  text.setAttribute("fill", "#000");
+  text.setAttribute("dominant-baseline", "hanging");
+
+  const anchor = el.alignment === "center" ? "middle"
+               : el.alignment === "right"  ? "end"
+               : "start";
+  let tx = el.x;
+  if (el.alignment === "center") tx = el.x + (el.width || 0) / 2;
+  if (el.alignment === "right")  tx = el.x + (el.width || 0);
+
+  text.setAttribute("x", tx);
+  text.setAttribute("y", el.y);
+  text.setAttribute("text-anchor", anchor);
+  g.appendChild(text);
+
+  if (el.id === state.selectedId) {
+    const bbox = safeGetBBox(g);
+    if (bbox) addSelectionRect(g, bbox.x, bbox.y, bbox.width, bbox.height);
+  }
+  return g;
+}
+
+/* ─── QR ─── */
+function renderQrElement(el) {
+  const g = baseGroup(el);
+  const { x, y, size: s } = el;
+
+  // Фон
+  const bg = document.createElementNS(SVG_NS, "rect");
+  bg.setAttribute("x", x); bg.setAttribute("y", y);
+  bg.setAttribute("width", s); bg.setAttribute("height", s);
+  bg.setAttribute("fill", "#f6f6f6");
+  bg.setAttribute("stroke", "#aaa");
+  bg.setAttribute("stroke-width", 1);
+  g.appendChild(bg);
+
+  // Три маркера поиска
+  const mSize = Math.max(8, s / 5);
+  const corners = [
+    [x, y],
+    [x + s - mSize, y],
+    [x, y + s - mSize],
+  ];
+  for (const [mx, my] of corners) {
+    const outer = document.createElementNS(SVG_NS, "rect");
+    outer.setAttribute("x", mx); outer.setAttribute("y", my);
+    outer.setAttribute("width", mSize); outer.setAttribute("height", mSize);
+    outer.setAttribute("fill", "#000");
+    g.appendChild(outer);
+
+    const mid = document.createElementNS(SVG_NS, "rect");
+    mid.setAttribute("x", mx + mSize * 0.2);
+    mid.setAttribute("y", my + mSize * 0.2);
+    mid.setAttribute("width", mSize * 0.6);
+    mid.setAttribute("height", mSize * 0.6);
+    mid.setAttribute("fill", "#f6f6f6");
+    g.appendChild(mid);
+
+    const core = document.createElementNS(SVG_NS, "rect");
+    core.setAttribute("x", mx + mSize * 0.35);
+    core.setAttribute("y", my + mSize * 0.35);
+    core.setAttribute("width", mSize * 0.3);
+    core.setAttribute("height", mSize * 0.3);
+    core.setAttribute("fill", "#000");
+    g.appendChild(core);
+  }
+
+  // Подпись «QR» по центру
+  if (s >= 40) {
+    const label = document.createElementNS(SVG_NS, "text");
+    label.setAttribute("x", x + s / 2);
+    label.setAttribute("y", y + s / 2);
+    label.setAttribute("text-anchor", "middle");
+    label.setAttribute("dominant-baseline", "middle");
+    label.setAttribute("font-size", Math.min(14, s / 5));
+    label.setAttribute("font-family", "system-ui, sans-serif");
+    label.setAttribute("fill", "#888");
+    label.textContent = "QR";
+    g.appendChild(label);
+  }
+
+  if (el.id === state.selectedId) addSelectionRect(g, x, y, s, s);
+  return g;
+}
+
+/* ─── Barcode ─── */
+function renderBarcodeElement(el) {
+  const g = baseGroup(el);
+  const { x, y, height: h } = el;
+  const w = BARCODE_PREVIEW_WIDTH;
+
+  // Фон
+  const bg = document.createElementNS(SVG_NS, "rect");
+  bg.setAttribute("x", x); bg.setAttribute("y", y);
+  bg.setAttribute("width", w); bg.setAttribute("height", h);
+  bg.setAttribute("fill", "#fff");
+  bg.setAttribute("stroke", "#aaa");
+  bg.setAttribute("stroke-width", 1);
+  g.appendChild(bg);
+
+  // Имитация штрихов: чередующиеся полосы разной ширины
+  const barAreaTop = y + 4;
+  const barAreaBottom = el.humanReadable ? y + h - 18 : y + h - 4;
+  const barAreaH = Math.max(1, barAreaBottom - barAreaTop);
+  const startX = x + 6;
+  const endX = x + w - 6;
+  let cursor = startX;
+  let i = 0;
+  while (cursor < endX) {
+    const barW = (i % 3 === 0) ? 3 : (i % 3 === 1 ? 1 : 2);
+    if (cursor + barW > endX) break;
+    if (i % 2 === 0) {
+      const bar = document.createElementNS(SVG_NS, "rect");
+      bar.setAttribute("x", cursor);
+      bar.setAttribute("y", barAreaTop);
+      bar.setAttribute("width", barW);
+      bar.setAttribute("height", barAreaH);
+      bar.setAttribute("fill", "#000");
+      g.appendChild(bar);
+    }
+    cursor += barW + 1;
+    i++;
+  }
+
+  // Человекочитаемая строка
+  if (el.humanReadable) {
+    const label = document.createElementNS(SVG_NS, "text");
+    label.setAttribute("x", x + w / 2);
+    label.setAttribute("y", y + h - 4);
+    label.setAttribute("text-anchor", "middle");
+    label.setAttribute("font-family", "ui-monospace, monospace");
+    label.setAttribute("font-size", "11");
+    label.setAttribute("fill", "#000");
+    label.textContent = substituteVars(el.content) || "0000000000000";
+    g.appendChild(label);
+  }
+
+  if (el.id === state.selectedId) addSelectionRect(g, x, y, w, h);
+  return g;
+}
+
+/* ─── Line ─── */
+function renderLineElement(el) {
+  const g = baseGroup(el);
+  const line = document.createElementNS(SVG_NS, "line");
+  line.setAttribute("x1", el.x1);
+  line.setAttribute("y1", el.y1);
+  line.setAttribute("x2", el.x2);
+  line.setAttribute("y2", el.y2);
+  line.setAttribute("stroke", "#000");
+  line.setAttribute("stroke-width", el.thickness);
+  g.appendChild(line);
+
+  if (el.id === state.selectedId) {
+    const minX = Math.min(el.x1, el.x2);
+    const minY = Math.min(el.y1, el.y2);
+    const w = Math.abs(el.x2 - el.x1);
+    const h = Math.abs(el.y2 - el.y1);
+    // Для тонкой линии bbox может быть 0 по одной оси — рамка будет
+    // вырожденной, поэтому задаю минимум 4 точки.
+    addSelectionRect(g, minX - 2, minY - 2, Math.max(w, 4) + 4, Math.max(h, 4) + 4);
+  }
+  return g;
+}
+
+/* ─── Rect ─── */
+function renderRectElement(el) {
+  const g = baseGroup(el);
+  const rect = document.createElementNS(SVG_NS, "rect");
+  rect.setAttribute("x", el.x);
+  rect.setAttribute("y", el.y);
+  rect.setAttribute("width", el.width);
+  rect.setAttribute("height", el.height);
+  rect.setAttribute("fill", "none");
+  rect.setAttribute("stroke", "#000");
+  rect.setAttribute("stroke-width", el.thickness);
+  g.appendChild(rect);
+
+  if (el.id === state.selectedId) {
+    addSelectionRect(g, el.x, el.y, el.width, el.height);
+  }
+  return g;
+}
+
+function safeGetBBox(g) {
+  try {
+    const b = g.getBBox();
+    if (!b || (b.width === 0 && b.height === 0)) return null;
+    return b;
+  } catch (e) { return null; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   СЕКЦИЯ 8. Drag элементов
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function startElementDrag(e, el) {
+  if (e.button !== 0) return;
+  e.stopPropagation();
+
+  if (state.selectedId !== el.id) {
+    state.selectedId = el.id;
+    renderCanvas();
+    renderProperties();
+  }
+  if (el.type === "line") startDragLine(e, el);
+  else                    startDragBox(e, el);
+}
+
+// Сдвиг элемента за левый верх (или за точку, где пользователь кликнул).
+function startDragBox(e, el) {
+  const svg = document.getElementById("canvas");
+  const start = clientToCanvas(svg, e.clientX, e.clientY);
+  const offsetX = start.x - el.x;
+  const offsetY = start.y - el.y;
+
+  function onMove(ev) {
+    const pt = clientToCanvas(svg, ev.clientX, ev.clientY);
+    const nx = clampX(snap(pt.x - offsetX));
+    const ny = clampY(snap(pt.y - offsetY));
+    if (el.x === nx && el.y === ny) return;
+    el.x = nx; el.y = ny;
+    markDirty();
+    renderCanvas();
+    syncPropertyValues();
+  }
+  function onUp() {
+    document.removeEventListener("pointermove", onMove);
+    document.removeEventListener("pointerup", onUp);
+  }
+  document.addEventListener("pointermove", onMove);
+  document.addEventListener("pointerup", onUp);
+}
+
+// Линию тащим целиком: обе точки сдвигаются на одну дельту.
+function startDragLine(e, el) {
+  const svg = document.getElementById("canvas");
+  const start = clientToCanvas(svg, e.clientX, e.clientY);
+  const sx1 = el.x1, sy1 = el.y1, sx2 = el.x2, sy2 = el.y2;
+
+  function onMove(ev) {
+    const pt = clientToCanvas(svg, ev.clientX, ev.clientY);
+    const dx = pt.x - start.x;
+    const dy = pt.y - start.y;
+    el.x1 = snap(sx1 + dx);
+    el.y1 = snap(sy1 + dy);
+    el.x2 = snap(sx2 + dx);
+    el.y2 = snap(sy2 + dy);
+    markDirty();
+    renderCanvas();
+    syncPropertyValues();
+  }
+  function onUp() {
+    document.removeEventListener("pointermove", onMove);
+    document.removeEventListener("pointerup", onUp);
+  }
+  document.addEventListener("pointermove", onMove);
+  document.addEventListener("pointerup", onUp);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   СЕКЦИЯ 9. Панель свойств
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function renderProperties() {
+  const container = document.getElementById("properties-content");
+  container.innerHTML = "";
+
+  const el = state.elements.find(e => e.id === state.selectedId);
+  if (!el) {
+    container.innerHTML =
+      '<div class="empty-hint">Выберите элемент на холсте<br>или перетащите из палитры</div>';
+    return;
+  }
+
+  switch (el.type) {
+    case "text":    renderTextProps(el, container); break;
+    case "qr":      renderQrProps(el, container); break;
+    case "barcode": renderBarcodeProps(el, container); break;
+    case "line":    renderLineProps(el, container); break;
+    case "rect":    renderRectProps(el, container); break;
+  }
+
+  const del = document.createElement("button");
+  del.className = "btn-danger";
+  del.textContent = "Удалить элемент";
+  del.addEventListener("click", deleteSelected);
+  container.appendChild(del);
+}
+
+/* ─── Общие хелперы полей ─── */
+
+function fieldWrapper(labelText, hint) {
+  const div = document.createElement("div");
+  div.className = "prop-field";
+  const label = document.createElement("label");
+  label.textContent = labelText;
+  if (hint) {
+    const h = document.createElement("span");
+    h.className = "hint";
+    h.textContent = hint;
+    label.appendChild(h);
+  }
+  div.appendChild(label);
+  return div;
+}
+
+function numberInput(key, value) {
+  const input = document.createElement("input");
+  input.type = "number";
+  input.value = value;
+  input.dataset.propKey = key;
+  input.addEventListener("input", () => {
+    const v = parseInt(input.value, 10);
+    if (isNaN(v)) return;
+    onPropChange(key, v);
+  });
+  return input;
+}
+
+function textInput(key, value) {
+  const input = document.createElement("input");
+  input.type = "text";
+  input.value = value;
+  input.dataset.propKey = key;
+  input.addEventListener("input", () => onPropChange(key, input.value));
+  return input;
+}
+
+function textArea(key, value) {
+  const ta = document.createElement("textarea");
+  ta.value = value;
+  ta.dataset.propKey = key;
+  ta.addEventListener("input", () => onPropChange(key, ta.value));
+  return ta;
+}
+
+function selectInput(key, value, options) {
+  const sel = document.createElement("select");
+  sel.dataset.propKey = key;
+  for (const [v, l] of options) {
+    const o = document.createElement("option");
+    o.value = v; o.textContent = l;
+    if (String(v) === String(value)) o.selected = true;
+    sel.appendChild(o);
+  }
+  sel.addEventListener("change", () => {
+    const v = sel.value;
+    onPropChange(key, isFinite(v) && v !== "" ? Number(v) : v);
+  });
+  return sel;
+}
+
+function checkboxInput(key, checked) {
+  const input = document.createElement("input");
+  input.type = "checkbox";
+  input.checked = checked;
+  input.dataset.propKey = key;
+  input.addEventListener("change", () => onPropChange(key, input.checked));
+  return input;
+}
+
+function rowOf(...nodes) {
+  const row = document.createElement("div");
+  row.className = "row";
+  for (const n of nodes) row.appendChild(n);
+  return row;
+}
+
+/* ─── Text props ─── */
+
+function renderTextProps(el, container) {
+  const f1 = fieldWrapper("X", "точек");
+  f1.appendChild(numberInput("x", el.x));
+  container.appendChild(f1);
+
+  const f2 = fieldWrapper("Y", "точек");
+  f2.appendChild(numberInput("y", el.y));
+  container.appendChild(f2);
+
+  const f3 = fieldWrapper("Текст", "можно {{variable}}");
+  f3.appendChild(textArea("text", el.text));
+  container.appendChild(f3);
+
+  const f4 = fieldWrapper("Шрифт", "TSPL 1–5");
+  f4.appendChild(selectInput("fontName", el.fontName, [
+    ["1", "1 — 8×12"], ["2", "2 — 12×20"], ["3", "3 — 16×24"],
+    ["4", "4 — 24×32"], ["5", "5 — 32×48"],
+  ]));
+  container.appendChild(f4);
+
+  const f5 = fieldWrapper("Множитель");
+  f5.appendChild(selectInput("yMul", el.yMul, [
+    [1, "1×"], [2, "2×"], [3, "3×"],
+  ]));
+  // Меняем и xMul, и yMul одновременно — раздельно пользователю не нужно.
+  f5.querySelector("select").addEventListener("change", (e) => {
+    onPropChange("xMul", Number(e.target.value));
+  });
+  container.appendChild(f5);
+
+  const f6 = fieldWrapper("Выравнивание");
+  f6.appendChild(selectInput("alignment", el.alignment, [
+    ["left", "По левому краю"],
+    ["center", "По центру"],
+    ["right", "По правому краю"],
+  ]));
+  container.appendChild(f6);
+}
+
+/* ─── QR props ─── */
+
+function renderQrProps(el, container) {
+  const f1 = fieldWrapper("X", "точек");
+  f1.appendChild(numberInput("x", el.x));
+  container.appendChild(f1);
+
+  const f2 = fieldWrapper("Y", "точек");
+  f2.appendChild(numberInput("y", el.y));
+  container.appendChild(f2);
+
+  const f3 = fieldWrapper("Размер", "сторона квадрата, точек");
+  f3.appendChild(numberInput("size", el.size));
+  container.appendChild(f3);
+
+  const f4 = fieldWrapper("Содержимое", "можно {{variable}}");
+  f4.appendChild(textArea("content", el.content));
+  container.appendChild(f4);
+
+  const f5 = fieldWrapper("Уровень коррекции");
+  f5.appendChild(selectInput("ecc", el.ecc, [
+    ["L", "L — 7%"],
+    ["M", "M — 15%"],
+    ["Q", "Q — 25%"],
+    ["H", "H — 30%"],
+  ]));
+  container.appendChild(f5);
+
+  // Расширенные
+  const adv = document.createElement("details");
+  adv.className = "prop-advanced";
+  const sum = document.createElement("summary");
+  sum.textContent = "Дополнительно";
+  adv.appendChild(sum);
+
+  const a1 = fieldWrapper("Model");
+  a1.appendChild(selectInput("model", el.model, [["M1","M1"], ["M2","M2"]]));
+  adv.appendChild(a1);
+
+  const a2 = fieldWrapper("Mask");
+  a2.appendChild(selectInput("mask", el.mask,
+    ["S0","S1","S2","S3","S4","S5","S6","S7","S8"].map(v => [v, v])));
+  adv.appendChild(a2);
+
+  const a3 = fieldWrapper("Cell", "1–10");
+  a3.appendChild(numberInput("cell", el.cell));
+  adv.appendChild(a3);
+
+  container.appendChild(adv);
+}
+
+/* ─── Barcode props ─── */
+
+function renderBarcodeProps(el, container) {
+  const f1 = fieldWrapper("X", "точек");
+  f1.appendChild(numberInput("x", el.x));
+  container.appendChild(f1);
+
+  const f2 = fieldWrapper("Y", "точек");
+  f2.appendChild(numberInput("y", el.y));
+  container.appendChild(f2);
+
+  const f3 = fieldWrapper("Высота", "точек");
+  f3.appendChild(numberInput("height", el.height));
+  container.appendChild(f3);
+
+  const f4 = fieldWrapper("Содержимое", "13 цифр EAN-13, можно {{variable}}");
+  f4.appendChild(textArea("content", el.content));
+  container.appendChild(f4);
+
+  const f5 = fieldWrapper("");
+  const lbl = f5.querySelector("label");
+  lbl.appendChild(checkboxInput("humanReadable", el.humanReadable));
+  lbl.appendChild(document.createTextNode("Показывать цифры под штрихкодом"));
+  container.appendChild(f5);
+}
+
+/* ─── Line props ─── */
+
+function renderLineProps(el, container) {
+  const r1 = rowOf(
+    (() => { const f = fieldWrapper("X1"); f.appendChild(numberInput("x1", el.x1)); return f; })(),
+    (() => { const f = fieldWrapper("Y1"); f.appendChild(numberInput("y1", el.y1)); return f; })(),
+  );
+  container.appendChild(r1);
+
+  const r2 = rowOf(
+    (() => { const f = fieldWrapper("X2"); f.appendChild(numberInput("x2", el.x2)); return f; })(),
+    (() => { const f = fieldWrapper("Y2"); f.appendChild(numberInput("y2", el.y2)); return f; })(),
+  );
+  container.appendChild(r2);
+
+  const f3 = fieldWrapper("Толщина", "точек");
+  f3.appendChild(numberInput("thickness", el.thickness));
+  container.appendChild(f3);
+
+  const info = document.createElement("div");
+  info.className = "prop-info warn";
+  info.textContent =
+    "В TSPL у команды BAR нет rotation. При печати координаты этой линии " +
+    "будут пересчитаны генератором — рисуется она в прямой (портретной) системе.";
+  container.appendChild(info);
+}
+
+/* ─── Rect props ─── */
+
+function renderRectProps(el, container) {
+  const r1 = rowOf(
+    (() => { const f = fieldWrapper("X"); f.appendChild(numberInput("x", el.x)); return f; })(),
+    (() => { const f = fieldWrapper("Y"); f.appendChild(numberInput("y", el.y)); return f; })(),
+  );
+  container.appendChild(r1);
+
+  const r2 = rowOf(
+    (() => { const f = fieldWrapper("Ширина"); f.appendChild(numberInput("width", el.width)); return f; })(),
+    (() => { const f = fieldWrapper("Высота"); f.appendChild(numberInput("height", el.height)); return f; })(),
+  );
+  container.appendChild(r2);
+
+  const f3 = fieldWrapper("Толщина", "точек");
+  f3.appendChild(numberInput("thickness", el.thickness));
+  container.appendChild(f3);
+
+  const info = document.createElement("div");
+  info.className = "prop-info warn";
+  info.textContent =
+    "В TSPL у команды BOX нет rotation. При печати координаты рамки будут " +
+    "пересчитаны генератором — рисуется она в прямой (портретной) системе.";
+  container.appendChild(info);
+}
+
+/* ─── Изменение свойства ─── */
+
+function onPropChange(key, value) {
+  const el = state.elements.find(e => e.id === state.selectedId);
+  if (!el) return;
+  el[key] = value;
+  markDirty();
+  renderCanvas();
+}
+
+// Обновляет значения в полях панели, не пересобирая DOM — чтобы drag
+// не терял фокус и каретку в полях свойств.
+function syncPropertyValues() {
+  const el = state.elements.find(e => e.id === state.selectedId);
+  if (!el) return;
+  for (const input of document.querySelectorAll("[data-prop-key]")) {
+    if (document.activeElement === input) continue;
+    const key = input.dataset.propKey;
+    if (key in el && (typeof el[key] === "number" || typeof el[key] === "string")) {
+      input.value = el[key];
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   СЕКЦИЯ 10. Полный рендер и инициализация
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function renderAll() {
+  renderCanvas();
+  renderProperties();
+}
+
+async function init() {
+  // Клик по пустому холсту — снять выделение
+  const svg = document.getElementById("canvas");
+  svg.addEventListener("pointerdown", (e) => {
+    if (e.target === svg || e.target.id === "canvas-bg") {
+      if (state.selectedId !== null) {
+        state.selectedId = null;
+        renderAll();
+      }
+    }
+  });
+
+  document.getElementById("save-btn").addEventListener("click", saveLayout);
+  document.getElementById("snap-toggle").addEventListener("change", (e) => {
+    state.snapEnabled = e.target.checked;
+  });
+  document.getElementById("template-select").addEventListener("change", (e) => {
+    selectTemplate(e.target.value);
+  });
+  document.getElementById("palette-search").addEventListener("input", (e) => {
+    state.searchQuery = e.target.value;
+    renderPalette();
+  });
+
+  // Delete — удалить выделенный
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Delete" && e.key !== "Backspace") return;
+    const t = e.target;
+    if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT")) return;
+    if (!state.selectedId) return;
+    e.preventDefault();
+    deleteSelected();
+  });
+
+  // Ctrl+S / Cmd+S — сохранить
+  document.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+      e.preventDefault();
+      saveLayout();
+    }
+  });
+
+  // Предупреждение при уходе с несохранёнными изменениями
+  window.addEventListener("beforeunload", (e) => {
+    if (state.dirty) { e.preventDefault(); e.returnValue = ""; }
+  });
+
+  // ─── Диалог нового шаблона ───
+  const newDialog = document.getElementById("new-template-dialog");
+  document.getElementById("new-template-btn").addEventListener("click", () => {
+    document.getElementById("nt-code").value = "";
+    document.getElementById("nt-name").value = "";
+    document.getElementById("nt-producer").value = "";
+    newDialog.showModal();
+  });
+  document.getElementById("nt-cancel").addEventListener("click", () => newDialog.close());
+  document.getElementById("nt-create").addEventListener("click", async () => {
+    const code = document.getElementById("nt-code").value.trim();
+    const name = document.getElementById("nt-name").value.trim();
+    const producer = document.getElementById("nt-producer").value.trim();
+    if (!code || !name) {
+      showToast("Код и название обязательны", "error");
+      return;
+    }
+    if (!/^[A-Za-z0-9_\-]+$/.test(code)) {
+      showToast("Код может содержать только A-Z, a-z, 0-9, _ и -", "error");
+      return;
+    }
+    const created = await createNewTemplate(code, name, producer);
+    if (!created) return;
+    newDialog.close();
+    await loadTemplates();
+    await selectTemplate(created.template_id);
+    showToast(`Шаблон ${created.code} создан`, "ok");
+  });
+
+  // ─── Диалог редактирования шаблона ───
+  const editDialog = document.getElementById("edit-template-dialog");
+  document.getElementById("edit-template-btn").addEventListener("click", async () => {
+    if (!state.currentTemplateId) return;
+    // Достаём карточку шаблона, чтобы показать актуальные поля.
+    let r;
+    try {
+      r = await fetch(`/api/v1/templates/${state.currentTemplateId}`);
+    } catch (e) { showToast("Сеть: " + e.message, "error"); return; }
+    if (!r.ok) { showToast(`HTTP ${r.status}`, "error"); return; }
+    const t = await r.json();
+    document.getElementById("et-code").value = t.code;
+    document.getElementById("et-name").value = t.name;
+    document.getElementById("et-producer").value = t.producer_info || "";
+    document.getElementById("et-active").checked = t.is_active;
+    editDialog.showModal();
+  });
+  document.getElementById("et-cancel").addEventListener("click", () => editDialog.close());
+  document.getElementById("et-save").addEventListener("click", async () => {
+    const updated = await updateTemplate(state.currentTemplateId, {
+      name: document.getElementById("et-name").value.trim(),
+      producer_info: document.getElementById("et-producer").value.trim() || null,
+      is_active: document.getElementById("et-active").checked,
+    });
+    if (!updated) return;
+    editDialog.close();
+    await loadTemplates();
+    showToast("Шаблон сохранён", "ok");
+  });
+
+  await Promise.all([loadVariables(), loadTemplates()]);
+  renderPalette();
+
+  if (state.templates.length) {
+    await selectTemplate(state.templates[0].template_id);
+  } else {
+    renderAll();
+  }
+}
+
+document.addEventListener("DOMContentLoaded", init);
+</script>
+</body>
+</html>
