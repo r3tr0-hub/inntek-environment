@@ -6,8 +6,9 @@ from sqlalchemy import func
 from ..database import get_db
 from ..models import (
     Box, Specification, LabelVariant, Shift, User, Machine,
-    ShiftAssignment, PrintJob, LabelTemplate,
+    ShiftAssignment, PrintJob, LabelTemplate, Pallet,
 )
+
 from ..schemas import BoxCreate, BoxOut, BoxQuarantine, BoxCancel, BoxScanIn, BoxScanOut
 from ..label_builder import build_tspl
 from ..services.printer_client import send_to_printer
@@ -270,6 +271,11 @@ def quarantine_box(box_id: int, payload: BoxQuarantine, db: Session = Depends(ge
         raise HTTPException(400, f"Недопустимая причина. Возможные: {', '.join(sorted(VALID_QUARANTINE_REASONS))}")
     _check_operator_shift(box, db)
 
+    # Если на паллете — запоминаем, с какой сняли
+    if box.status == "on_pallet" and box.pallet_id is not None:
+        box.quarantine_from_pallet_id = box.pallet_id
+        box.pallet_id = None
+
     box.status = "quarantined"
     box.quarantined_at = datetime.utcnow()
     box.quarantine_reason = payload.reason
@@ -329,20 +335,18 @@ def _extract_uid(qr_or_barcode: str) -> int | None:
 
 @router.post("/scan", response_model=BoxScanOut)
 def scan_box(payload: BoxScanIn, db: Session = Depends(get_db)):
-    """Упаковщик сканирует QR этикетки. Коробка переводится в labeled."""
-    # 1. Находим упаковщика по PIN
+    """Упаковщик сканирует QR этикетки. Коробка переводится в labeled,
+    и сразу привязывается к активной паллете на станке (если она открыта)."""
     packer = db.query(User).filter(User.pin == payload.pin, User.active == True).first()
     if not packer:
         raise HTTPException(401, "Неверный PIN")
     if packer.role != "upakovshchik":
         raise HTTPException(400, "Этот пользователь не упаковщик")
 
-    # 2. Активная смена
     shift = db.query(Shift).filter(Shift.status == "open").first()
     if not shift:
         raise HTTPException(400, "Нет активной смены")
 
-    # 3. Активное назначение упаковщика (на каком он станке)
     assignment = db.query(ShiftAssignment).filter(
         ShiftAssignment.shift_id == shift.shift_id,
         ShiftAssignment.user_id == packer.user_id,
@@ -352,12 +356,19 @@ def scan_box(payload: BoxScanIn, db: Session = Depends(get_db)):
     if not assignment or not assignment.machine_id:
         raise HTTPException(400, "Упаковщик не зарегистрирован на станке в текущей смене")
 
-    # 4. Ищем коробку
+    # Активная паллета на станке — обязательна
+    pallet = db.query(Pallet).filter(
+        Pallet.shift_id == shift.shift_id,
+        Pallet.machine_id == assignment.machine_id,
+        Pallet.status == "open",
+    ).first()
+    if not pallet:
+        raise HTTPException(400, "Сначала откройте паллету на станке")
+
+    # Ищем коробку
     box: Box | None = None
-    # Сначала по box_barcode (если просканировали как штрихкод)
     if payload.qr.startswith("BOX-"):
         box = db.query(Box).filter(Box.box_barcode == payload.qr.strip()).first()
-    # Потом по UID из QR
     if box is None:
         uid = _extract_uid(payload.qr)
         if uid is not None:
@@ -365,7 +376,6 @@ def scan_box(payload: BoxScanIn, db: Session = Depends(get_db)):
     if not box:
         raise HTTPException(404, "Коробка не найдена по отсканированному коду")
 
-    # 5. Проверки коробки
     if box.status != "printed":
         raise HTTPException(400, f"Коробка в статусе {box.status} — нельзя наклеить")
     if box.shift_id != shift.shift_id:
@@ -373,9 +383,11 @@ def scan_box(payload: BoxScanIn, db: Session = Depends(get_db)):
     if box.machine_id != assignment.machine_id:
         raise HTTPException(400, "Коробка с другого станка — операция запрещена")
 
-    # 6. Переводим в labeled
-    box.status = "labeled"
-    box.labeled_at = datetime.utcnow()
+    # labeled + на паллету
+    now = datetime.utcnow()
+    box.status = "on_pallet"
+    box.labeled_at = now
     box.labeled_by_user_id = packer.user_id
+    box.pallet_id = pallet.pallet_id
     db.commit(); db.refresh(box)
     return box

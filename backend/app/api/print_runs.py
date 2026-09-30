@@ -100,7 +100,7 @@ def create_print_run(payload: PrintRunCreate, db: Session = Depends(get_db)):
     for i in range(payload.quantity):
         box_number = last_num + i + 1
         b = Box(
-            box_barcode="TMP", qr_content="TMP",
+            box_barcode=f"TMP-{run.run_id}-{i}", qr_content="TMP",
             spec_id=payload.spec_id, variant_id=payload.variant_id,
             shift_id=payload.shift_id, machine_id=payload.machine_id,
             print_run_id=run.run_id,

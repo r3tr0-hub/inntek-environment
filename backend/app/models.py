@@ -82,6 +82,8 @@ class Box(Base):
     shift_id: Mapped[int] = mapped_column(ForeignKey("shifts.shift_id"))
     machine_id: Mapped[int | None] = mapped_column(ForeignKey("machines.machine_id"), nullable=True)
     print_run_id: Mapped[int | None] = mapped_column(ForeignKey("print_runs.run_id"), nullable=True)
+    pallet_id: Mapped[int | None] = mapped_column(ForeignKey("pallets.pallet_id"), nullable=True)
+    quarantine_from_pallet_id: Mapped[int | None] = mapped_column(ForeignKey("pallets.pallet_id"), nullable=True)
     box_number_in_shift: Mapped[int | None] = mapped_column(Integer, nullable=True)
     quantity_total: Mapped[int] = mapped_column(Integer)
     quantity_packs: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -173,5 +175,25 @@ class PrintRun(Base):
         CheckConstraint(
             "status IN ('active','done','cancelled')",
             name="ck_print_run_status",
+        ),
+    )
+
+class Pallet(Base):
+    __tablename__ = "pallets"
+    pallet_id: Mapped[int] = mapped_column(primary_key=True)
+    pallet_number: Mapped[str] = mapped_column(String(30), unique=True)
+    shift_id: Mapped[int] = mapped_column(ForeignKey("shifts.shift_id"))
+    machine_id: Mapped[int] = mapped_column(ForeignKey("machines.machine_id"))
+    created_by_user_id: Mapped[int] = mapped_column(ForeignKey("users.user_id"))
+    closed_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.user_id"), nullable=True)
+    close_reason: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="open")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    __table_args__ = (
+        CheckConstraint("status IN ('open','closed')", name="ck_pallet_status"),
+        CheckConstraint(
+            "close_reason IS NULL OR close_reason IN ('manual','auto_shift_close')",
+            name="ck_pallet_close_reason",
         ),
     )

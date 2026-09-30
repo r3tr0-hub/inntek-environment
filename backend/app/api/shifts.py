@@ -4,8 +4,10 @@ from datetime import date, datetime
 from pydantic import BaseModel
 
 from ..database import get_db
-from ..models import Shift, ShiftAssignment, User, Machine
+from ..models import Shift, ShiftAssignment, User, Machine, Pallet, Box
 from ..schemas import ShiftOut, AssignmentOut, ShiftOpenWithComposition, PackerCheckIn, PackerCheckOut
+
+from sqlalchemy import func
 
 router = APIRouter(prefix="/shifts", tags=["shifts"])
 
@@ -82,6 +84,22 @@ def close_shift(shift_id: int, db: Session = Depends(get_db)):
         ShiftAssignment.shift_id == shift_id,
         ShiftAssignment.to_time.is_(None),
     ).update({"to_time": now, "reason": "смена закрыта"})
+
+    # Автозакрытие открытых паллет этой смены
+    open_pallets = db.query(Pallet).filter(
+        Pallet.shift_id == shift_id,
+        Pallet.status == "open",
+    ).all()
+    for p in open_pallets:
+        boxes_cnt = db.query(func.count(Box.box_id)).filter(Box.pallet_id == p.pallet_id).scalar() or 0
+        # Пустые паллеты просто удаляем (или оставляем открытыми без закрытия)
+        if boxes_cnt == 0:
+            db.delete(p)
+        else:
+            p.status = "closed"
+            p.closed_at = now
+            p.closed_by_user_id = None
+            p.close_reason = "auto_shift_close"
 
     db.commit(); db.refresh(s)
     return s

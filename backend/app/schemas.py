@@ -343,3 +343,48 @@ class ShiftReport(BaseModel):
     specifications: list[ReportSpec] = []
     machines: list[ReportMachine] = []
     totals: ReportTotals
+
+# ─── Pallets ───
+
+class PalletOpenIn(BaseModel):
+    pin: str
+    machine_id: int
+
+
+class PalletCloseIn(BaseModel):
+    pin: str
+
+
+class PalletMoveBoxIn(BaseModel):
+    pin: str
+    box_id: int
+    target_pallet_id: int | None = None
+    create_new_pallet: bool = False
+    reference_box_id: int | None = None  # паллета определяется по этой коробке
+    create_new_machine_id: int | None = None  # для создания новой паллеты нужен machine_id
+    remove_from_pallet: bool = False  # если true — просто снять с паллеты
+
+
+class PalletOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    pallet_id: int
+    pallet_number: str
+    shift_id: int
+    machine_id: int
+    created_by_user_id: int
+    closed_by_user_id: int | None = None
+    close_reason: str | None = None
+    status: str
+    created_at: datetime
+    closed_at: datetime | None = None
+    boxes_count: int | None = None
+
+
+class PalletBoxShort(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    box_id: int
+    box_uid: int
+    box_barcode: str
+    box_number_in_shift: int | None
+    spec_id: int
+    status: str
