@@ -62,7 +62,18 @@
     letter-spacing: 0.05em; color: var(--muted);
     margin: 0 0 8px; font-weight: 600;
   }
-
+  /* ─── Запрет выделения при drag ─── */
+  /* Области, где пользователь тащит мышью — выделение текста мешает.
+     Поля ввода и textarea оставляем выделяемыми (см. правило ниже). */
+  header, #palette, #canvas-area, #properties {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  /* Явно разрешаем выделение там, где это нужно (ввод текста). */
+  input, textarea, select {
+    user-select: text;
+    -webkit-user-select: text;
+  }
   /* ─── Холст ─── */
   #canvas-area {
     background: #0a0c10; display: flex; align-items: center;
@@ -71,8 +82,9 @@
   #canvas {
     width: 100%; height: 100%;
     max-width: 100%; max-height: 100%;
-    background: #fff;
-    box-shadow: 0 0 24px rgba(0,0,0,.6);
+    /* Фон даёт <rect id="canvas-bg"> внутри SVG — он ровно 960×600.
+       Сам SVG прозрачен, вне этикетки виден тёмный фон контейнера. */
+    filter: drop-shadow(0 0 24px rgba(0,0,0,.6));
     touch-action: none;
   }
 
@@ -160,6 +172,21 @@
     font-size: 11px; color: var(--muted); line-height: 1.4;
   }
   .prop-info.warn { color: var(--warn); border-color: #4a3a1c; }
+
+  .mini-btn {
+    flex: 1;
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 4px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .mini-btn:hover { border-color: var(--accent); }
+  .mini-btn:active { background: var(--panel); }
+
   .btn-danger {
     width: 100%; background: transparent; color: var(--err);
     border: 1px solid var(--err); border-radius: 6px;
@@ -234,9 +261,11 @@
   <button id="edit-template-btn" title="Настройки текущего шаблона">⚙</button>
   <span class="dirty" id="dirty-marker" title="Есть несохранённые изменения" style="display:none">●</span>
   <span class="spacer"></span>
-  <label class="toggle" title="Округлять координаты до 5 точек">
-    <input type="checkbox" id="snap-toggle"> Сетка 5
+  <label class="toggle" title="Показать сетку (мелкая клетка 20, крупная 100 точек). Координаты округляются до 20.">
+    <input type="checkbox" id="grid-toggle"> Сетка
   </label>
+  <button id="tspl-btn" disabled title="Показать TSPL, который получится">TSPL</button>
+  <button id="test-print-btn" disabled title="Напечатать тестовую этикетку">Печать</button>
   <button id="save-btn" class="primary" disabled>Сохранить</button>
 </header>
 
@@ -252,7 +281,35 @@
   <section id="canvas-area">
     <svg id="canvas" xmlns="http://www.w3.org/2000/svg"
          viewBox="0 0 960 600" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <!-- Мелкая клетка: 20×20 точек (2.5 мм). -->
+        <pattern id="grid-minor" width="20" height="20"
+                 patternUnits="userSpaceOnUse">
+          <path d="M 20 0 L 0 0 0 20" fill="none"
+                stroke="#e8e8e8" stroke-width="0.5"/>
+        </pattern>
+        <!-- Крупная клетка: 100×100 точек (12.5 мм), поверх мелкой. -->
+        <pattern id="grid-major" width="100" height="100"
+                 patternUnits="userSpaceOnUse">
+          <rect width="100" height="100" fill="url(#grid-minor)"/>
+          <path d="M 100 0 L 0 0 0 100" fill="none"
+                stroke="#c8c8c8" stroke-width="1"/>
+        </pattern>
+      </defs>
+
       <rect id="canvas-bg" x="0" y="0" width="960" height="600" fill="#fff"/>
+
+      <!-- Слой сетки. По умолчанию скрыт (display:none), включается тумблером.
+           pointer-events="none" — не мешает кликам и выделению. -->
+      <rect id="grid-layer" x="0" y="0" width="960" height="600"
+            fill="url(#grid-major)" pointer-events="none"
+            style="display:none"/>
+
+      <!-- Стенка: визуальный аналог BOX 0,0,960,600,2 — граница этикетки. -->
+      <rect id="canvas-wall" x="1" y="1" width="958" height="598"
+            fill="none" stroke="#9aa3b2" stroke-width="2"
+            pointer-events="none"/>
+
       <g id="elements-layer"></g>
     </svg>
   </section>
@@ -311,6 +368,25 @@
   </div>
 </dialog>
 
+<dialog id="tspl-dialog">
+  <h3>Сгенерированный TSPL</h3>
+  <div class="prop-field">
+    <label>
+      <span class="hint">Можно скопировать и отправить вручную.
+      Тестовые значения переменных подставлены.</span>
+    </label>
+    <textarea id="tspl-text" readonly rows="20"
+              style="font-family:ui-monospace,monospace;font-size:12px;
+                     min-height:340px;white-space:pre;overflow:auto"></textarea>
+  </div>
+  <div id="tspl-status" style="font-size:12px;color:var(--muted);min-height:16px"></div>
+  <div class="dialog-btns">
+    <button type="button" id="tspl-copy">Копировать</button>
+    <button type="button" id="tspl-send" class="primary">Напечатать</button>
+    <button type="button" id="tspl-close">Закрыть</button>
+  </div>
+</dialog>
+
 <div id="toast"></div>
 
 <script>
@@ -331,6 +407,8 @@ const BARCODE_PREVIEW_WIDTH = 240;
 const CANVAS_DEFAULT = {
   width: 960, height: 600, units: "dots", orientation: "landscape"
 };
+// Шаг привязки при включённой сетке — совпадает с шагом мелкой клетки.
+const SNAP_STEP = 20;
 
 function uid() {
   return "el_" + Date.now().toString(36) + "_" +
@@ -367,6 +445,89 @@ function clientToCanvas(svg, cx, cy) {
   return { x: p.x, y: p.y };
 }
 
+/* ─── Стенки: зажим элементов внутрь холста ─────────────────────────── */
+
+function clamp(v, lo, hi) {
+  if (hi < lo) return lo;
+  return Math.max(lo, Math.min(hi, Math.round(v)));
+}
+
+// Приблизительный bbox элемента по данным (без обращения к DOM).
+// Для текста ширина оценивается по длине строки: моноширинный шрифт
+// имеет среднюю ширину глифа ~0.6 от высоты. Оценка приблизительная,
+// но для контроля границ этого достаточно.
+function getElementBBox(el) {
+  switch (el.type) {
+    case "text": {
+      const fs = fontBase(el.fontName) * (el.yMul || 1);
+      const len = (el.text || "").length || 1;
+      return {
+        w: Math.max(20, Math.ceil(len * fs * 0.6)),
+        h: Math.ceil(fs * 1.1),
+      };
+    }
+    case "qr":
+      return { w: el.size, h: el.size };
+    case "barcode":
+      return { w: BARCODE_PREVIEW_WIDTH, h: el.height };
+    case "line":
+      return {
+        w: Math.abs(el.x2 - el.x1) + (el.thickness || 1),
+        h: Math.abs(el.y2 - el.y1) + (el.thickness || 1),
+      };
+    case "rect":
+      return { w: el.width, h: el.height };
+    default:
+      return { w: 20, h: 20 };
+  }
+}
+
+// Приводит элемент внутрь стенок холста. Изменяет объект in-place.
+// Вызывается при создании, drag и любом вводе в панели свойств.
+function constrainElement(el) {
+  const W = state.canvas.width;
+  const H = state.canvas.height;
+
+  switch (el.type) {
+    case "text": {
+      // Для текста bbox в браузере и на принтере не совпадают (разные
+      // шрифты), поэтому ограничиваем только левый верхний угол.
+      // Если текст вылезает за границы — это видно на холсте, решение
+      // за пользователем: сократить текст, уменьшить множитель, сдвинуть.
+      el.x = clamp(el.x, 0, W);
+      el.y = clamp(el.y, 0, H);
+      break;
+    }
+    case "qr": {
+      el.size = Math.max(20, Math.min(el.size, W, H));
+      el.x = clamp(el.x, 0, W - el.size);
+      el.y = clamp(el.y, 0, H - el.size);
+      break;
+    }
+    case "barcode": {
+      el.height = Math.max(10, Math.min(el.height, H));
+      el.x = clamp(el.x, 0, W - BARCODE_PREVIEW_WIDTH);
+      el.y = clamp(el.y, 0, H - el.height);
+      break;
+    }
+    case "line": {
+      // Обе точки независимо подтягиваем в [0, W]×[0, H].
+      el.x1 = clamp(el.x1, 0, W - 1);
+      el.y1 = clamp(el.y1, 0, H - 1);
+      el.x2 = clamp(el.x2, 0, W - 1);
+      el.y2 = clamp(el.y2, 0, H - 1);
+      break;
+    }
+    case "rect": {
+      el.width  = Math.max(10, Math.min(el.width,  W));
+      el.height = Math.max(10, Math.min(el.height, H));
+      el.x = clamp(el.x, 0, W - el.width);
+      el.y = clamp(el.y, 0, H - el.height);
+      break;
+    }
+  }
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    СЕКЦИЯ 2. Состояние приложения
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -380,8 +541,7 @@ const state = {
   templates: [],
   currentTemplateId: null,
   dirty: false,
-  snapEnabled: false,
-  snapSize: 5,
+  gridEnabled: false,
   searchQuery: "",
 };
 
@@ -394,8 +554,8 @@ function clearDirty() {
   document.getElementById("dirty-marker").style.display = "none";
 }
 function snap(value) {
-  if (!state.snapEnabled) return Math.round(value);
-  return Math.round(value / state.snapSize) * state.snapSize;
+  if (!state.gridEnabled) return Math.round(value);
+  return Math.round(value / SNAP_STEP) * SNAP_STEP;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -429,14 +589,21 @@ async function loadTemplates() {
 function renderTemplateSelect() {
   const sel = document.getElementById("template-select");
   sel.innerHTML = "";
+  const saveBtn = document.getElementById("save-btn");
+  const tsplBtn = document.getElementById("tspl-btn");
+  const printBtn = document.getElementById("test-print-btn");
   if (!state.templates.length) {
     sel.innerHTML = '<option>(нет шаблонов)</option>';
     sel.disabled = true;
-    document.getElementById("save-btn").disabled = true;
+    if (saveBtn) saveBtn.disabled = true;
+    if (tsplBtn) tsplBtn.disabled = true;
+    if (printBtn) printBtn.disabled = true;
     return;
   }
   sel.disabled = false;
-  document.getElementById("save-btn").disabled = false;
+  if (saveBtn) saveBtn.disabled = false;
+  if (tsplBtn) tsplBtn.disabled = false;
+  if (printBtn) printBtn.disabled = false;
   for (const t of state.templates) {
     const o = document.createElement("option");
     o.value = t.template_id;
@@ -561,6 +728,43 @@ async function saveLayout() {
   }
 }
 
+async function requestTspl({ send }) {
+  if (!state.currentTemplateId && !state.elements.length) {
+    showToast("Нечего печатать — добавьте хотя бы один элемент", "error");
+    return null;
+  }
+  const payload = {
+    layout: {
+      version: 1,
+      canvas: state.canvas,
+      elements: state.elements,
+    },
+    send: !!send,
+  };
+  let r;
+  try {
+    r = await fetch("/api/label-designer/test-print", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  } catch (e) {
+    showToast("Сеть: " + e.message, "error");
+    return null;
+  }
+  if (!r.ok) {
+    let detail = "";
+    try { detail = (await r.json()).detail; } catch (e) { detail = await r.text(); }
+    showToast(`Ошибка: ${detail}`, "error");
+    return null;
+  }
+  const data = await r.json();
+  // Показываем TSPL в модалке, даже если просто отправили — не помешает.
+  const el = document.getElementById("tspl-text");
+  if (el) el.value = data.tspl || "";
+  return data;
+}
+
 async function createNewTemplate(code, name, producerInfo) {
   const payload = {
     code,
@@ -645,9 +849,14 @@ function renderPalette() {
     item: { kind: "barcode" },
   }));
   figuresSection.appendChild(makeChip({
-    name: "Линия",
-    example: "─── горизонтальная",
-    item: { kind: "line" },
+    name: "Линия ↔",
+    example: "горизонтальная",
+    item: { kind: "line", orientation: "horizontal" },
+  }));
+  figuresSection.appendChild(makeChip({
+    name: "Линия ↕",
+    example: "вертикальная",
+    item: { kind: "line", orientation: "vertical" },
   }));
   figuresSection.appendChild(makeChip({
     name: "Прямоугольник",
@@ -769,10 +978,11 @@ function createElementAt(item, x, y) {
     case "text":     el = createTextElement(x, y, "Новый текст"); break;
     case "qr":       el = createQrElement(x, y); break;
     case "barcode":  el = createBarcodeElement(x, y); break;
-    case "line":     el = createLineElement(x, y); break;
+    case "line":     el = createLineElement(x, y, item.orientation || "horizontal"); break;
     case "rect":     el = createRectElement(x, y); break;
     default: return;
   }
+  constrainElement(el);   // ← если создан у самого края — сдвинуть внутрь
   state.elements.push(el);
   state.selectedId = el.id;
   markDirty();
@@ -783,7 +993,9 @@ function createTextElement(x, y, text) {
   return {
     type: "text",
     id: uid(),
-    x: clampX(x), y: clampY(y),
+    // Без запаса 20 — иначе текст нельзя положить у самого края.
+    x: clamp(x, 0, state.canvas.width),
+    y: clamp(y, 0, state.canvas.height),
     width: 300, height: 40,
     text,
     fontName: "3", xMul: 2, yMul: 2,
@@ -822,13 +1034,22 @@ function createBarcodeElement(x, y) {
   };
 }
 
-function createLineElement(x, y) {
-  // Горизонтальная линия длиной 100 точек, центрированная на курсоре.
+function createLineElement(x, y, orientation = "horizontal") {
+  const half = 50;
+  let x1, y1, x2, y2;
+  if (orientation === "vertical") {
+    // Вертикальная: обе точки на одной X, разнесены по Y.
+    x1 = clampX(x);       y1 = clampY(y - half);
+    x2 = clampX(x);       y2 = clampY(y + half);
+  } else {
+    // Горизонтальная: обе точки на одной Y, разнесены по X.
+    x1 = clampX(x - half); y1 = clampY(y);
+    x2 = clampX(x + half); y2 = clampY(y);
+  }
   return {
     type: "line",
     id: uid(),
-    x1: clampX(x - 50), y1: clampY(y),
-    x2: clampX(x + 50), y2: clampY(y),
+    x1, y1, x2, y2,
     thickness: 2,
   };
 }
@@ -1118,6 +1339,7 @@ function safeGetBBox(g) {
 
 function startElementDrag(e, el) {
   if (e.button !== 0) return;
+  e.preventDefault();      // ← гасит старт выделения текста под курсором
   e.stopPropagation();
 
   if (state.selectedId !== el.id) {
@@ -1138,10 +1360,11 @@ function startDragBox(e, el) {
 
   function onMove(ev) {
     const pt = clientToCanvas(svg, ev.clientX, ev.clientY);
-    const nx = clampX(snap(pt.x - offsetX));
-    const ny = clampY(snap(pt.y - offsetY));
-    if (el.x === nx && el.y === ny) return;
-    el.x = nx; el.y = ny;
+    const prevX = el.x, prevY = el.y;
+    el.x = snap(pt.x - offsetX);
+    el.y = snap(pt.y - offsetY);
+    constrainElement(el);   // ← зажим в стенки
+    if (el.x === prevX && el.y === prevY) return;
     markDirty();
     renderCanvas();
     syncPropertyValues();
@@ -1168,6 +1391,7 @@ function startDragLine(e, el) {
     el.y1 = snap(sy1 + dy);
     el.x2 = snap(sx2 + dx);
     el.y2 = snap(sy2 + dy);
+    constrainElement(el);   // ← зажим обеих точек в стенки
     markDirty();
     renderCanvas();
     syncPropertyValues();
@@ -1410,6 +1634,39 @@ function renderBarcodeProps(el, container) {
 /* ─── Line props ─── */
 
 function renderLineProps(el, container) {
+  // ─── Быстрый поворот ───
+  const rotField = fieldWrapper("Поворот");
+  const rotRow = document.createElement("div");
+  rotRow.className = "row";
+
+  const btnH = document.createElement("button");
+  btnH.type = "button";
+  btnH.textContent = "↔ Гор.";
+  btnH.className = "mini-btn";
+  btnH.title = "Сделать горизонтальной";
+  btnH.addEventListener("click", () => makeLineHorizontal(el));
+
+  const btnV = document.createElement("button");
+  btnV.type = "button";
+  btnV.textContent = "↕ Верт.";
+  btnV.className = "mini-btn";
+  btnV.title = "Сделать вертикальной";
+  btnV.addEventListener("click", () => makeLineVertical(el));
+
+  const btnD = document.createElement("button");
+  btnD.type = "button";
+  btnD.textContent = "↗ Диаг.";
+  btnD.className = "mini-btn";
+  btnD.title = "Сделать диагональной";
+  btnD.addEventListener("click", () => makeLineDiagonal(el));
+
+  rotRow.appendChild(btnH);
+  rotRow.appendChild(btnV);
+  rotRow.appendChild(btnD);
+  rotField.appendChild(rotRow);
+  container.appendChild(rotField);
+
+  // ─── Координаты ───
   const r1 = rowOf(
     (() => { const f = fieldWrapper("X1"); f.appendChild(numberInput("x1", el.x1)); return f; })(),
     (() => { const f = fieldWrapper("Y1"); f.appendChild(numberInput("y1", el.y1)); return f; })(),
@@ -1429,9 +1686,65 @@ function renderLineProps(el, container) {
   const info = document.createElement("div");
   info.className = "prop-info warn";
   info.textContent =
-    "В TSPL у команды BAR нет rotation. При печати координаты этой линии " +
+    "В TSPL у команды BOX нет rotation. При печати координаты этой линии " +
     "будут пересчитаны генератором — рисуется она в прямой (портретной) системе.";
   container.appendChild(info);
+}
+
+// ─── Быстрый поворот: сохраняем длину, разворачиваем вокруг центра ───
+
+function _lineCenter(el) {
+  return {
+    cx: (el.x1 + el.x2) / 2,
+    cy: (el.y1 + el.y2) / 2,
+  };
+}
+
+function _lineLength(el) {
+  return Math.hypot(el.x2 - el.x1, el.y2 - el.y1);
+}
+
+function makeLineHorizontal(el) {
+  const { cx, cy } = _lineCenter(el);
+  const len = _lineLength(el);
+  const half = len / 2;
+  el.x1 = Math.round(cx - half);
+  el.x2 = Math.round(cx + half);
+  el.y1 = Math.round(cy);
+  el.y2 = Math.round(cy);
+  constrainElement(el);
+  markDirty();
+  renderAll();
+}
+
+function makeLineVertical(el) {
+  const { cx, cy } = _lineCenter(el);
+  const len = _lineLength(el);
+  const half = len / 2;
+  el.x1 = Math.round(cx);
+  el.x2 = Math.round(cx);
+  el.y1 = Math.round(cy - half);
+  el.y2 = Math.round(cy + half);
+  constrainElement(el);
+  markDirty();
+  renderAll();
+}
+
+function makeLineDiagonal(el) {
+  // Диагональ 45° — разворачиваем по знаку текущего наклона.
+  const { cx, cy } = _lineCenter(el);
+  const len = _lineLength(el);
+  const half = len / 2 / Math.SQRT2;   // чтобы длина осталась примерно той же
+  // Если линия была «\» — оставляем «\»; если «/» — оставляем «/».
+  const slope = (el.x2 - el.x1) * (el.y2 - el.y1);
+  const sign = slope >= 0 ? 1 : -1;
+  el.x1 = Math.round(cx - half);
+  el.y1 = Math.round(cy - half * sign);
+  el.x2 = Math.round(cx + half);
+  el.y2 = Math.round(cy + half * sign);
+  constrainElement(el);
+  markDirty();
+  renderAll();
 }
 
 /* ─── Rect props ─── */
@@ -1467,6 +1780,7 @@ function onPropChange(key, value) {
   const el = state.elements.find(e => e.id === state.selectedId);
   if (!el) return;
   el[key] = value;
+  constrainElement(el);   // ← зажим в стенки при любом вводе
   markDirty();
   renderCanvas();
 }
@@ -1507,8 +1821,50 @@ async function init() {
   });
 
   document.getElementById("save-btn").addEventListener("click", saveLayout);
-  document.getElementById("snap-toggle").addEventListener("change", (e) => {
-    state.snapEnabled = e.target.checked;
+
+  // ─── Тестовая печать и TSPL ───
+  const tsplDialog = document.getElementById("tspl-dialog");
+  const tsplText = document.getElementById("tspl-text");
+  const tsplStatus = document.getElementById("tspl-status");
+
+  document.getElementById("tspl-btn").addEventListener("click", async () => {
+    await requestTspl({ send: false });
+    tsplDialog.showModal();
+  });
+
+  document.getElementById("test-print-btn").addEventListener("click", async () => {
+    if (!confirm("Отправить тестовую этикетку на принтер?")) return;
+    const r = await requestTspl({ send: true });
+    if (r && r.status === "ok") {
+      showToast(`Отправлено (режим: ${r.mode || "?"})`, "ok");
+    }
+  });
+
+  document.getElementById("tspl-close").addEventListener("click", () => tsplDialog.close());
+
+  document.getElementById("tspl-copy").addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(tsplText.value);
+      tsplStatus.textContent = "Скопировано в буфер";
+      setTimeout(() => { tsplStatus.textContent = ""; }, 2000);
+    } catch (e) {
+      tsplStatus.textContent = "Не удалось скопировать: " + e.message;
+    }
+  });
+
+  document.getElementById("tspl-send").addEventListener("click", async () => {
+    if (!confirm("Отправить эту TSPL на принтер?")) return;
+    const r = await requestTspl({ send: true });
+    if (r && r.status === "ok") {
+      showToast(`Отправлено (режим: ${r.mode || "?"})`, "ok");
+      tsplDialog.close();
+    }
+  });
+
+  document.getElementById("grid-toggle").addEventListener("change", (e) => {
+    state.gridEnabled = e.target.checked;
+    document.getElementById("grid-layer").style.display =
+      state.gridEnabled ? "" : "none";
   });
   document.getElementById("template-select").addEventListener("change", (e) => {
     selectTemplate(e.target.value);

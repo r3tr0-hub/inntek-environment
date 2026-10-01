@@ -22,6 +22,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from .validators import validate_ean13
+
 # Итоговый размер портретной этикетки (75×120 мм @ 203 dpi).
 LABEL_PORTRAIT_WIDTH = 600
 LABEL_PORTRAIT_HEIGHT = 960
@@ -199,6 +201,12 @@ def _render_barcode(el: dict[str, Any], data: dict[str, Any]) -> str | None:
     bc_type = str(el.get("barcodeType", "EAN13"))
     if bc_type != "EAN13":
         raise ValueError(f"пока поддерживается только EAN13, получено {bc_type!r}")
+
+    # Проверяем контрольную сумму — печатать мусорный EAN-13 нельзя.
+    if not validate_ean13(content):
+        raise ValueError(
+            f"EAN-13 {content!r} не проходит проверку контрольной суммы"
+        )
 
     height = int(el.get("height", 60))
     human = 1 if el.get("humanReadable", True) else 0

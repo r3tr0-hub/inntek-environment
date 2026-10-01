@@ -37,7 +37,7 @@ VARIABLES: tuple[Variable, ...] = (
 
     # --- LabelVariant ---------------------------------------------------
     Variable("label_name",           "Название этикетки",    "LabelVariant",  "Вайлдберриз 250x400+35"),
-    Variable("barcode",              "Штрихкод EAN-13",      "LabelVariant",  "2000000000017"),
+    Variable("barcode",              "Штрихкод EAN-13",      "LabelVariant",  "4600000000015"),
     Variable("external_sku",         "Артикул СДЭК",         "LabelVariant",  "CDEK-0001"),
     Variable("supplier",             "Поставщик",            "LabelVariant",  "ООО «ИННТЕК»"),
 

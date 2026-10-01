@@ -20,6 +20,10 @@ from ..models import LabelTemplate
 from ..services.label_designer.schemas import LayoutSchema
 from ..services.label_designer.variables import VARIABLES, get_example_values
 
+from ..services.label_designer.tspl_generator import generate_tspl
+from ..services.printer_client import send_to_printer
+from pydantic import BaseModel, Field
+
 
 router = APIRouter(tags=["label-designer"])
 
@@ -99,3 +103,49 @@ def save_layout(
     db.commit()
     db.refresh(template)
     return {"status": "ok", "template_id": template_id}
+
+# --- Тестовая печать ---------------------------------------------------
+
+class TestPrintRequest(BaseModel):
+    layout: LayoutSchema
+    send: bool = Field(
+        default=False,
+        description="True — отправить на принтер; False — только вернуть TSPL.",
+    )
+
+
+class TestPrintResponse(BaseModel):
+    status: str                # 'ok' | 'error'
+    mode: str | None = None    # 'file' | 'http' — как отправили (в dev обычно 'file')
+    path: str | None = None    # путь до файла (в dev-режиме)
+    error: str | None = None
+    tspl: str                  # сгенерированная программа — всегда возвращаем
+
+
+@router.post("/api/label-designer/test-print", response_model=TestPrintResponse)
+def test_print(payload: TestPrintRequest) -> TestPrintResponse:
+    """
+    Генерирует TSPL по переданному layout с тестовыми данными.
+
+    Если send=True — отправляет на принтер через тот же путь, что и обычная
+    печать (send_to_printer). Если PRINTER_URL не задан (dev-режим), файл
+    сохранится в backend/printed/, а ответ вернёт путь.
+    """
+    example_values = get_example_values()
+    try:
+        tspl = generate_tspl(payload.layout.model_dump(mode="json"), example_values)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Ошибка генерации TSPL: {e}")
+
+    if not payload.send:
+        return TestPrintResponse(status="ok", tspl=tspl)
+
+    result = send_to_printer(tspl, profile="75x120")
+    ok = result.get("status") in ("saved", "queued")
+    return TestPrintResponse(
+        status="ok" if ok else "error",
+        mode=result.get("mode"),
+        path=result.get("path"),
+        error=result.get("error") if not ok else None,
+        tspl=tspl,
+    )

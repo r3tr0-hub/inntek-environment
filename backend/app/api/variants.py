@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models import LabelVariant, Specification, LabelTemplate
 from ..schemas import LabelVariantOut, LabelVariantCreate, LabelVariantUpdate
+from ..services.label_designer.validators import validate_ean13, ean13_error_message
+
 
 router = APIRouter(prefix="/variants", tags=["variants"])
 
@@ -66,6 +68,12 @@ def create_variant(payload: LabelVariantCreate, db: Session = Depends(get_db)):
         LabelVariant.template_id == payload.template_id,
     ).first():
         raise HTTPException(400, "Вариант с этой парой (spec, template) уже существует")
+    # Если штрихкод задан — проверяем контрольную сумму EAN-13.
+    if payload.barcode and not validate_ean13(payload.barcode):
+        raise HTTPException(
+            400,
+            f"Некорректный штрихкод: {ean13_error_message(payload.barcode)}",
+        )
 
     v = LabelVariant(
         spec_id=payload.spec_id,
@@ -85,6 +93,13 @@ def update_variant(variant_id: int, payload: LabelVariantUpdate, db: Session = D
     v = db.get(LabelVariant, variant_id)
     if not v:
         raise HTTPException(404, "Вариант не найден")
+
+    # Отдельно проверяем новый barcode перед записью.
+    if payload.barcode is not None and not validate_ean13(payload.barcode):
+        raise HTTPException(
+            400,
+            f"Некорректный штрихкод: {ean13_error_message(payload.barcode)}",
+        )
 
     for field in ("label_name", "barcode", "external_sku", "supplier", "is_active"):
         val = getattr(payload, field)
